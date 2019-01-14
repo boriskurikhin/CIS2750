@@ -308,6 +308,7 @@ char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyN
             }
         }
     }
+    if (result) free(result);
     /* Found nothing useful */
     return NULL;
 }
