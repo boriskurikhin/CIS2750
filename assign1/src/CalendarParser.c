@@ -31,7 +31,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
     /* See if it's NULL */
     if (calendarFile == NULL) return INV_FILE;
-    
+
     //At this point we already know the file exists, and is valid.
     fclose( calendarFile );
     /* Assuming everyt1hing has worked */
@@ -58,7 +58,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
     /* It's not a number, cannot be represented by a float */
     for (int i = 0; i < strlen(version); i++) {
-        if (isnumber(version[i])) continue;
+        if (isdigit(version[i])) continue;
         if (version[i] == '.' && !singlePeriod) {
             singlePeriod = 1;
             continue;
@@ -99,7 +99,7 @@ void trim (char ** string) {
     int beginIndex = 0, length = strlen(str), endIndex = length - 3, newLength, i, j;
     while (beginIndex < length && isspace(str[beginIndex])) beginIndex++;
     while (endIndex >= beginIndex && isspace(str[endIndex])) endIndex--;
-    
+
     newLength = endIndex - beginIndex + 1;
     newString = (char *) malloc (newLength + 3);
     for (i = beginIndex, j = 0; i <= endIndex; i++, j++) {
@@ -118,9 +118,9 @@ char * getToken ( char * entireFile, int * index) {
     int lineIndex = 0;
     /* Quick checks */
     if (entireFile == NULL || strlen(entireFile) == 0) return NULL;
-   
+
     if (*index == strlen(entireFile)) return NULL;
-   
+
     if (index == NULL || *index < 0) return NULL;
 
     /* Loop until the end */
@@ -187,25 +187,25 @@ char ** readFile ( char * fileName, int * numLines ) {
         /* Realloc to insert new character */
         if (entireFile == NULL) {
             entireFile = (char *) malloc( 1 );
-            entireFile[0] = (char) buffer; 
+            entireFile[0] = (char) buffer;
         } else {
             entireFile = realloc(entireFile, index + 2);
             entireFile[index] = (char) buffer;
             /* Adds backslash zero */
-            entireFile[index + 1] = '\0'; 
+            entireFile[index + 1] = '\0';
         }
         /* Incremenet index either way */
         index++;
     }
     /* Prepare the array */
-    
+
     index = 0;
     /* Tokenizes the String */
     while ( 1 ) {
         char * token = getToken(entireFile, &index);
         /* Minor error checking */
         if (token == NULL) break;
-        
+
         if (index == -1) {
             error = 1;
             printf("Error has occured reading the file somewhere!\n");
@@ -242,7 +242,7 @@ char ** readFile ( char * fileName, int * numLines ) {
     if (line) free(line);
     fclose(calendarFile);
     if (error) {
-        for (int i = 0; i < numTokens; i++) 
+        for (int i = 0; i < numTokens; i++)
             free(returnFile[i]);
         free(returnFile);
         return NULL;
