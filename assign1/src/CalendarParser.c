@@ -75,7 +75,6 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         #endif 
         /* Free memory */
         if (prodId) free(prodId);
-        free ( *obj );
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
 
@@ -90,7 +89,6 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         #endif
         if (prodId) free(prodId);
         if (version) free(version);
-        free ( *obj );
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
 
@@ -114,7 +112,6 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         #endif
         free(prodId);
         free(version);
-        free( *obj );
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
         return OTHER_ERROR;
