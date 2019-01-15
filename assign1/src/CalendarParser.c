@@ -14,7 +14,6 @@ int main() {
     ICalErrorCode createCal = createCalendar("test2.ical", &calendar);
     if (createCal == OK) printf("Calendar parsed OK\n");
     else printf("Error occured\n");
-    /* printf("%s\n", createCal == OK ? "Worked!\n" : "Didn't Work!\n"); */
     deleteCalendar(calendar);
     return 0;
 }
@@ -241,7 +240,10 @@ char ** readFile ( char * fileName, int * numLines ) {
         index++;
     }
     
-    if (!index || !entireFile) return NULL;
+    if (!index || !entireFile) {
+        fclose(calendarFile);
+        return NULL;
+    }
 
     /* Prepare the array */
     index = 0;
@@ -263,11 +265,11 @@ char ** readFile ( char * fileName, int * numLines ) {
             /* Whatever we've allocated before */
             /* Free it */
             if (returnFile) {
-                for (int i = 0; i < numTokens; i++) {
+                for (int i = 0; i < numTokens; i++)
                     free ( returnFile[i] );
-                }
+                free(returnFile);
             }
-            free(returnFile);
+            fclose(calendarFile);
             #if DEBUG
                 printf("Successfully freed all memory!\n");
             #endif
