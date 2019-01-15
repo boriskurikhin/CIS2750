@@ -109,11 +109,12 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     strcpy((*obj)->prodID, prodId);
 
     printf("Version: %.2f\n", (*obj)->version);
-    printf("ProdId: %s\n", prodId);
+    printf("ProdId: %s\n", (*obj)->prodID);
 
-    /* Close the file */
+    /* Free */
     free (version);
     free (prodId);
+    printf("Num lines is %d\n", numLines);
     for (int i = 0; i < numLines; i++) free(entire_file[i]);
     free(entire_file);
 
@@ -125,6 +126,7 @@ void deleteCalendar(Calendar * obj) {
 
     /* lastly */
     free ( obj );
+
 }
 /* Assumes everything ends with \r\n */
 void trim (char ** string) {
@@ -239,12 +241,12 @@ char ** readFile ( char * fileName, int * numLines ) {
         /* Incremenet index either way */
         index++;
     }
+
+    fclose(calendarFile);
     
     if (!index || !entireFile) {
-        fclose(calendarFile);
         return NULL;
     }
-
     /* Prepare the array */
     index = 0;
     /* Tokenizes the String */
@@ -269,7 +271,6 @@ char ** readFile ( char * fileName, int * numLines ) {
                     free ( returnFile[i] );
                 free(returnFile);
             }
-            fclose(calendarFile);
             #if DEBUG
                 printf("Successfully freed all memory!\n");
             #endif
@@ -301,7 +302,6 @@ char ** readFile ( char * fileName, int * numLines ) {
     }
     /* Free memory & close File */
     free(entireFile);
-    fclose(calendarFile);
     *numLines = numTokens;
     /* END */
     return returnFile;
