@@ -1,6 +1,6 @@
 BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
-VERSION:1232.23323232
+VERSION:2.0
 BEGIN:VEVENT
 TZID:America/Havana
 TZURL:http://tzurl.org/zoneinfo-outlook/America/Havana

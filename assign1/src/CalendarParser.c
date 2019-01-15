@@ -2,6 +2,7 @@
 #include "LinkedListAPI.h"
 #include <ctype.h>
 #include <strings.h>
+#include <limits.h>
 #define DEBUG 1
 
 Calendar * calendar;
@@ -12,18 +13,37 @@ char * getToken ( char * entireFile, int * index);
 void trim (char ** );
 int checkFormatting( char ** entireFile, int numLines);
 
+/* ALL PROPERTIES OF CALENDAR */
+const char calProperties[2][50] = { "CALSCALE", "METHOD" };
+const char calPropertiesMULTI[2][50] = {"X-PROP", "IANA-PROP"};
+
+/* ALL PROPERTIES FOR EVENT */
+const char eventPropertiesREQUIRED[3][50] = { "UID", "DTSTAMP", "DTSTART" };
+const char eventPropertiesONCE[14][50] = { "CLASS", "CREATED", "DESCRIPTION", "GEO", "LAST-MOD", "LOCATION", "ORGANIZER", "PRIORITY", "SEQ", "STATUS", "SUMMARY", "TRANSP", "URL", "RECURID" };
+const char eventPropertiesMULTI[15][50] = { "RRULE", "DTEND", "DURATION", "ATTACH", "ATTENDEE", "CATEGORIES", "COMMENT", "CONTACT", "EXDATE", "RSTATUS", "RELATED", "RESOURCES", "RDATE", "X-PROP", "IANA-PROP"};
+
 int main(int argv, char ** argc) {
     if (argv != 2) return 0;
 
     ICalErrorCode createCal = createCalendar(argc[1], &calendar);
+
     if (createCal == OK) printf("Calendar parsed OK\n");
-    else printf("Error occured\n");
+    else {
+        printf("Error occured\n");
+        return 0;
+    }
+
+    char * output = printCalendar(calendar);
+    printf("%s", output);
+    free(output);
+    
     deleteCalendar(calendar);
+
     return 0;
 }
 
 ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
-    int numLines = 0, correctVersion = 1, singlePeriod = 0;
+    int numLines = 0, correctVersion = 1;
     /* If the filename is null, or the string is empty */
     if (fileName == NULL || strcasecmp(fileName, "") == 0) return OTHER_ERROR;
     /* If the calendar object doesn't point to anything */
@@ -96,13 +116,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     }
     /* It's not a number, cannot be represented by a float */
     for (int i = 0; i < strlen(version); i++) {
-        if (isdigit(version[i])) continue;
-        if (version[i] == '.' && !singlePeriod) {
-            singlePeriod = 1;
-            continue;
-        }
-        /* End of line can be ignored for now */
-        if (version[i] == '\r' || version[i] == '\n') continue;
+        if ( (version[i] >= '0' && version[i] <= '9') || version[i] == '.'  || version[i] == '\r' || version[i] == '\n') continue;
         correctVersion = 0;
     }
     /* Basically, the version is not a number */
@@ -120,9 +134,6 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     (*obj)->version = (float) atof(version);;
     strcpy((*obj)->prodID, prodId);
 
-    printf("Version: %.2f\n", (*obj)->version);
-    printf("ProdId: %s\n", (*obj)->prodID);
-
     /* Free */
     if (version) free (version);
     if (prodId) free (prodId);
@@ -132,10 +143,12 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
     return OK;
 }
+/* Deletes the calendar */
 void deleteCalendar(Calendar * obj) {
     if (obj == NULL) return;
     /* gonna have to delete the lists */
-
+    // if (obj->events) freeList(obj->events);
+    // if (obj->properties) freeList(obj->properties);
     /* lastly */
     free ( obj );
 }
@@ -145,7 +158,7 @@ void trim (char ** string) {
     char * newString;
     if (str == NULL || !strlen(str)) return;
 
-    int beginIndex = 0, length = strlen(str), endIndex = length - 3, newLength, i, j;
+    int beginIndex = 0, length = strlen(str), endIndex = length - 2, newLength, i, j;
     while (beginIndex < length && isspace(str[beginIndex])) beginIndex++;
     while (endIndex >= beginIndex && isspace(str[endIndex])) endIndex--;
 
@@ -322,7 +335,7 @@ char ** readFile ( char * fileName, int * numLines ) {
 char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyName, char matchDelim) {
     int pLen = strlen(propertyName);
     char * result = NULL;
-    int index = 0, foundProperty = 0, blockBegan = 0, blockEnded = 0;
+    int index = 0, foundProperty = 0, propertyCount = 0, blockBegan = 0, blockEnded = 0;
     /* Doesn't make sense */
     if (endIndex < beginIndex) return NULL;
     /* Run through ea. line */
@@ -341,7 +354,8 @@ char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyN
                 }
             } else {
                 /* Only returns result if it's within the range */
-                return result;
+                foundProperty = 0;
+                continue;
             }
         } else {
             /* Check for blocks */
@@ -359,9 +373,20 @@ char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyN
                 }
                 /* After we matched property name, check the delimeter too */
                 if (matches && file[i][j] == matchDelim) {
+                    /* Propery occured more than once */
+                    if (++propertyCount > 1) {
+                        free(result);
+                        return NULL;
+                    }
+                    /* More than one property exists */
                     ++j;
                     /* Skip delimeter and began writing */
-                    for ( ; j < len && file[i][j] != '\r'; j++) {
+                    for ( ; j < len; j++) {
+                        if (file[i][j] == '\r') {
+                            if ((i + 1) < endIndex) 
+                                foundProperty = (file[i + 1][0] == ' ');
+                            break;
+                        }
                         if (result == NULL) result = (char *) malloc(2);
                         else result = realloc(result, index + 2);
                         result[index] = file[i][j];
@@ -374,12 +399,7 @@ char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyN
             }
         }
     }
-    #if DEBUG
-        printf("Property name %s was not found within %d and %d\n", propertyName, beginIndex, endIndex);
-    #endif
-    if (result) free(result);
-    /* Found nothing useful */
-    return NULL;
+    return result;
 }
 /* Verifies that all alarms & events are distributed correctly */
 int checkFormatting (char ** entire_file, int numLines) {
@@ -425,4 +445,27 @@ int checkFormatting (char ** entire_file, int numLines) {
     }
     /* Big Return */
     return !isAlarmOpen && !isEventOpen && numAlarmsOpened == numAlarmsClosed && numEventsOpened == numEventsClosed;
+}
+/* prints the calendar */
+char * printCalendar (const Calendar * obj) {
+    if (obj == NULL) return "CALENDAR IS NULL\n";
+    
+    char * result = (char *) malloc(30);
+    strcat(result, "==========CALENDAR==========\n");
+    
+    result = realloc(result, strlen(result) + 9);
+    strcat(result, "VERSION:");
+    
+    int numLength = snprintf(NULL, 0, "%f", obj->version);
+    result = realloc(result, strlen(result) + numLength + 2);
+    snprintf(result + strlen(result), numLength + 2, "%f\n", obj->version);
+
+    result = realloc(result, strlen(result) + 8);
+    strcat(result, "PRODID:");
+
+    result = realloc(result, strlen(result) + strlen(obj->prodID) + 2);
+    strcat(result, obj->prodID);
+    strcat(result, "\n");
+
+    return result;
 }
