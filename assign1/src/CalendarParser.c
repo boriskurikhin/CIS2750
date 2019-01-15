@@ -9,9 +9,12 @@ char ** readFile (char * , int *);
 char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyName, char );
 char * getToken ( char * entireFile, int * index);
 void trim (char ** );
+int checkFormatting( char ** entireFile, int numLines);
 
-int main() {
-    ICalErrorCode createCal = createCalendar("test2.ical", &calendar);
+int main(int argv, char ** argc) {
+    if (argv != 2) return 0;
+
+    ICalErrorCode createCal = createCalendar(argc[1], &calendar);
     if (createCal == OK) printf("Calendar parsed OK\n");
     else printf("Error occured\n");
     deleteCalendar(calendar);
@@ -21,7 +24,7 @@ int main() {
 ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     int numLines = 0, correctVersion = 1, singlePeriod = 0;
     /* If the filename is null, or the string is empty */
-    if (fileName == NULL || strcmp(fileName, "") == 0) return OTHER_ERROR;
+    if (fileName == NULL || strcasecmp(fileName, "") == 0) return OTHER_ERROR;
     /* If the calendar object doesn't point to anything */
     if (obj == NULL) return OTHER_ERROR;
 
@@ -38,7 +41,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
     if (entire_file == NULL) return OTHER_ERROR;
     /* Does not begin or end properly */
-    if (strcmp(entire_file[0], "BEGIN:VCALENDAR\r\n") || strcmp(entire_file[numLines - 1], "END:VCALENDAR\r\n")) {
+    if (strcasecmp(entire_file[0], "BEGIN:VCALENDAR\r\n") || strcasecmp(entire_file[numLines - 1], "END:VCALENDAR\r\n")) {
         #if DEBUG
             printf("The file doesn't follow the correct start/end protocol. Exiting.\n");
         #endif
@@ -47,6 +50,17 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         /* Free each array, and then free the whole thing itself */
         return OTHER_ERROR;
     }
+
+    /* Validates the formatting of the file */
+    if (!checkFormatting(entire_file, numLines)) {
+        #if DEBUG
+            printf("It seems that the layout of the file events & alarms is incorrect\n");
+        #endif
+        for (int i = 0; i < numLines; i++) free(entire_file[i]);
+        free(entire_file);
+        return OTHER_ERROR;
+    }
+
     *obj = (Calendar *) malloc ( sizeof ( Calendar ) );
     /* Raw values */
     char * version = findProperty(entire_file, 1, numLines, "VERSION", ':');
@@ -69,7 +83,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     /* Trim whitespace */
     trim(&version);
     /* Questionable */
-    if (prodId == NULL || strlen(version) == 0 || version == NULL || strlen(prodId) == 0) {
+    if (prodId == NULL || version == NULL || strlen(version) == 0 || strlen(prodId) == 0) {
         #if DEBUG
             printf("Error: Either version is empty after trimming, or prodId is empty.\n");
         #endif
@@ -112,9 +126,9 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     printf("ProdId: %s\n", (*obj)->prodID);
 
     /* Free */
-    free (version);
-    free (prodId);
-    printf("Num lines is %d\n", numLines);
+    if (version) free (version);
+    if (prodId) free (prodId);
+
     for (int i = 0; i < numLines; i++) free(entire_file[i]);
     free(entire_file);
 
@@ -126,7 +140,6 @@ void deleteCalendar(Calendar * obj) {
 
     /* lastly */
     free ( obj );
-
 }
 /* Assumes everything ends with \r\n */
 void trim (char ** string) {
@@ -369,4 +382,49 @@ char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyN
     if (result) free(result);
     /* Found nothing useful */
     return NULL;
+}
+/* Verifies that all alarms & events are distributed correctly */
+int checkFormatting (char ** entire_file, int numLines) {
+    if (numLines < 2) return 0;
+    if (strcasecmp(entire_file[0], "BEGIN:VCALENDAR\r\n")) return 0;
+    if (strcasecmp(entire_file[numLines - 1], "END:VCALENDAR\r\n")) return 0;
+    
+    int isEventOpen = 0;
+    int isAlarmOpen = 0;
+    int numEventsOpened = 0, numEventsClosed = 0;
+    int numAlarmsOpened = 0, numAlarmsClosed = 0;
+
+    for (int i = 1; i < numLines - 1; i++) {
+        if (strcasecmp(entire_file[i], "BEGIN:VEVENT\r\n") == 0) {
+            if (isEventOpen) return 0; /* There's an open event */
+            if (isAlarmOpen) return 0; /* There's an open alarm */
+            
+            isEventOpen = 1;
+            numEventsOpened++;
+        } else if (strcasecmp(entire_file[i], "END:VEVENT\r\n") == 0) {
+            if (!isEventOpen) return 0; /* We have no ongoing events */
+            if (isAlarmOpen) return 0; /* There's an alarm open */
+            if (numAlarmsOpened != numAlarmsClosed) {
+                return 0; /* something is bad */
+            }
+            /* Each time we close an event we re-set alarms */
+            numAlarmsOpened = numAlarmsClosed = 0;
+            isEventOpen = 0;
+            numEventsClosed++;
+        } else if (strcasecmp(entire_file[i], "BEGIN:VALARM\r\n") == 0) {
+            if (isAlarmOpen) return 0;
+            if (!isEventOpen) return 0;
+
+            isAlarmOpen = 1;
+            numAlarmsOpened++;
+        } else if (strcasecmp(entire_file[i], "END:VALARM\r\n") == 0) {
+            if (!isAlarmOpen) return 0;
+            if (!isEventOpen) return 0;
+
+            isAlarmOpen = 0;
+            numAlarmsClosed++;
+        }
+    }
+    /* Big Return */
+    return !isAlarmOpen && !isEventOpen && numAlarmsOpened == numAlarmsClosed && numEventsOpened == numEventsClosed;
 }
