@@ -1,6 +1,7 @@
 #include "CalendarParser.h"
 #include "LinkedListAPI.h"
 #include <ctype.h>
+#include <strings.h>
 #define DEBUG 1
 
 Calendar * calendar;
