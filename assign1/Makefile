@@ -13,4 +13,4 @@ parser: src/CalendarParser.c
 list:
 
 clean:
-	
+	rm bin/parser.out

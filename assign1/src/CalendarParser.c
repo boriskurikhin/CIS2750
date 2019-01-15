@@ -1,6 +1,7 @@
 #include "CalendarParser.h"
 #include "LinkedListAPI.h"
 #include <ctype.h>
+#define DEBUG 1
 
 Calendar * calendar;
 
@@ -12,8 +13,7 @@ void trim (char ** );
 int main() {
     ICalErrorCode createCal = createCalendar("test2.ical", &calendar);
     if (createCal == OK) printf("Calendar parsed OK\n");
-    if (createCal == INV_CAL) printf("Invalid Calendar\n");
-    if (createCal == INV_FILE) printf("Invalid File\n");
+    else printf("Error occured\n");
     /* printf("%s\n", createCal == OK ? "Worked!\n" : "Didn't Work!\n"); */
     deleteCalendar(calendar);
     return 0;
@@ -22,28 +22,31 @@ int main() {
 ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     int numLines = 0, correctVersion = 1, singlePeriod = 0;
     /* If the filename is null, or the string is empty */
-    if (fileName == NULL || strcmp(fileName, "") == 0) return INV_FILE;
+    if (fileName == NULL || strcmp(fileName, "") == 0) return OTHER_ERROR;
     /* If the calendar object doesn't point to anything */
-    if (obj == NULL) return INV_CAL;
+    if (obj == NULL) return OTHER_ERROR;
 
     /* Attempt to open the file */
     FILE * calendarFile = fopen(fileName, "r");
 
     /* See if it's NULL */
-    if (calendarFile == NULL) return INV_FILE;
+    if (calendarFile == NULL) return OTHER_ERROR;
 
     //At this point we already know the file exists, and is valid.
     fclose( calendarFile );
     /* Assuming everyt1hing has worked */
     char ** entire_file = readFile ( fileName, &numLines);
 
-    if (entire_file == NULL) return INV_FILE;
+    if (entire_file == NULL) return OTHER_ERROR;
     /* Does not begin or end properly */
     if (strcmp(entire_file[0], "BEGIN:VCALENDAR\r\n") || strcmp(entire_file[numLines - 1], "END:VCALENDAR\r\n")) {
+        #if DEBUG
+            printf("The file doesn't follow the correct start/end protocol. Exiting.\n");
+        #endif
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
         /* Free each array, and then free the whole thing itself */
-        return INV_FILE;
+        return OTHER_ERROR;
     }
     *obj = (Calendar *) malloc ( sizeof ( Calendar ) );
     /* Raw values */
@@ -51,11 +54,34 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     char * prodId = findProperty(entire_file, 1, numLines, "PRODID", ':');
 
     /* Trim any whitespace */
-    trim(&version);
     /* Check to make sure that version is a number */
-    if (version == NULL || strlen(version) == 0) return INV_CAL;
-    if (prodId == NULL || strlen(prodId) == 0) return INV_CAL;
+    if (version == NULL || strlen(version) == 0) {
+        #if DEBUG
+            printf("Error: Version is NULL\n");
+        #endif 
+        /* Free memory */
+        if (prodId) free(prodId);
+        free ( *obj );
+        for (int i = 0; i < numLines; i++) free(entire_file[i]);
+        free(entire_file);
 
+        return OTHER_ERROR;
+    }
+    /* Trim whitespace */
+    trim(&version);
+    /* Questionable */
+    if (prodId == NULL || strlen(version) == 0 || version == NULL || strlen(prodId) == 0) {
+        #if DEBUG
+            printf("Error: Either version is empty after trimming, or prodId is empty.\n");
+        #endif
+        if (prodId) free(prodId);
+        if (version) free(version);
+        free ( *obj );
+        for (int i = 0; i < numLines; i++) free(entire_file[i]);
+        free(entire_file);
+
+        return OTHER_ERROR;
+    }
     /* It's not a number, cannot be represented by a float */
     for (int i = 0; i < strlen(version); i++) {
         if (isdigit(version[i])) continue;
@@ -68,7 +94,17 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         correctVersion = 0;
     }
     /* Basically, the version is not a number */
-    if (!correctVersion) return INV_CAL;
+    if (!correctVersion) {
+        #if DEBUG
+            printf("Error: Version is not a floating point\n");
+        #endif
+        free(prodId);
+        free(version);
+        free( *obj );
+        for (int i = 0; i < numLines; i++) free(entire_file[i]);
+        free(entire_file);
+        return OTHER_ERROR;
+    }
     /* Write the version & production id */
     (*obj)->version = (float) atof(version);;
     strcpy((*obj)->prodID, prodId);
@@ -80,6 +116,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     free (version);
     free (prodId);
     for (int i = 0; i < numLines; i++) free(entire_file[i]);
+    free(entire_file);
 
     return OK;
 }
@@ -109,7 +146,7 @@ void trim (char ** string) {
     newString[newLength + 1] = '\n';
     newString[newLength + 2] = '\0';
     /* Free the old string and re-assign it */
-    free(str);
+    if (str) free(str);
     *string = newString;
 }
 /* Reads tokens, returns -1 for index if the tokens are bad */
@@ -118,9 +155,7 @@ char * getToken ( char * entireFile, int * index) {
     int lineIndex = 0;
     /* Quick checks */
     if (entireFile == NULL || strlen(entireFile) == 0) return NULL;
-
     if (*index == strlen(entireFile)) return NULL;
-
     if (index == NULL || *index < 0) return NULL;
 
     /* Loop until the end */
@@ -138,6 +173,9 @@ char * getToken ( char * entireFile, int * index) {
                     return line;
                 } else {
                     /* Random \r??? */
+                    #if DEBUG
+                        printf("Encountered a backslash-r without backslash-n. Exiting.\n");
+                    #endif
                     if (line) free(line);
                     /* Return NULL */
                     *index = -1;
@@ -145,6 +183,9 @@ char * getToken ( char * entireFile, int * index) {
                 }
             }
         } else if (entireFile[*index] == '\n') {
+            #if DEBUG
+                printf("Encountered a backslash-n. Exiting.\n");
+            #endif 
             if (line) free(line);
             *index = -1;
             return NULL;
@@ -163,6 +204,9 @@ char * getToken ( char * entireFile, int * index) {
             /* Should be good */
         }
     }
+    #if DEBUG
+        printf("Was not able to tokenize string, for unknown reason.\n");
+    #endif
     if (line) free(line);
     *index = -1;
     return NULL;
@@ -171,12 +215,11 @@ char * getToken ( char * entireFile, int * index) {
 char ** readFile ( char * fileName, int * numLines ) {
     /* Local variables */
     FILE * calendarFile = fopen(fileName, "r");
+
     char buffer = EOF;
     char * entireFile = NULL;
     char ** returnFile = NULL;
     int index = 0, tokenSize, numTokens = 0;
-    char * line;
-    int error = 0;
 
     /* Read until we hit end of file */
     while ( 1 ) {
@@ -197,27 +240,44 @@ char ** readFile ( char * fileName, int * numLines ) {
         /* Incremenet index either way */
         index++;
     }
-    /* Prepare the array */
+    
+    if (!index || !entireFile) return NULL;
 
+    /* Prepare the array */
     index = 0;
     /* Tokenizes the String */
     while ( 1 ) {
         char * token = getToken(entireFile, &index);
         /* Minor error checking */
         if (token == NULL) break;
+        tokenSize = strlen(token);
 
-        if (index == -1) {
-            error = 1;
-            printf("Error has occured reading the file somewhere!\n");
-            break;
+        if (index == -1 || tokenSize == 0) {
+            #if DEBUG
+                printf("Error: tokenizer returned: (index: %d, tokenSize: %d)\n", index, tokenSize);
+                printf("Attempting to free all memory!\n");
+            #endif
+            /* Free everything */
+            if (token) free (token);
+            if (entireFile) free(entireFile);
+            /* Whatever we've allocated before */
+            /* Free it */
+            if (returnFile) {
+                for (int i = 0; i < numTokens; i++) {
+                    free ( returnFile[i] );
+                }
+            }
+            free(returnFile);
+            #if DEBUG
+                printf("Successfully freed all memory!\n");
+            #endif
+            return NULL;
         }
 
-        tokenSize = strlen(token);
-        if (tokenSize > 75) error = 1;
-
-        line = (char *) malloc(tokenSize + 3);
+        char * line = (char *) malloc(tokenSize + 3);
         /* Create line from token, adding back in the delimeter */
         strcpy(line, token);
+        free (token);
         /* Add line break, and \0 for the meme */
         line[tokenSize] = '\r';
         line[tokenSize + 1] = '\n';
@@ -231,22 +291,15 @@ char ** readFile ( char * fileName, int * numLines ) {
         /* Create enough space in that index for the line of text */
         returnFile[numTokens] = (char *) malloc ( strlen(line) + 1);
         strcpy(returnFile[numTokens], line);
+        free(line);
         /* Add the \0 to indicate line ending */
         returnFile[numTokens][strlen(returnFile[numTokens])] = '\0';
-
-        free(token);
         numTokens++;
+        
     }
     /* Free memory & close File */
-    if (entireFile) free(entireFile);
-    if (line) free(line);
+    free(entireFile);
     fclose(calendarFile);
-    if (error) {
-        for (int i = 0; i < numTokens; i++)
-            free(returnFile[i]);
-        free(returnFile);
-        return NULL;
-    }
     *numLines = numTokens;
     /* END */
     return returnFile;
@@ -308,6 +361,9 @@ char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyN
             }
         }
     }
+    #if DEBUG
+        printf("Property name %s was not found within %d and %d\n", propertyName, beginIndex, endIndex);
+    #endif
     if (result) free(result);
     /* Found nothing useful */
     return NULL;
