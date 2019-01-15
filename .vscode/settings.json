@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "calendarparser.h": "c"
+        "calendarparser.h": "c",
+        "linkedlistapi.h": "c"
     }
 }
