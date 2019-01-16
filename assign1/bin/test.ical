@@ -2,7 +2,11 @@ BEGIN:VCALENDAR
 BEGIN:VEVENT
 UID:uid1@example.com
 DTSTAMP:19970714T170000Z
-ORGANIZER;CN=John Doe:MAILTO:john.doe@example.comaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ORGANIZER;CN=John Doe:MAILTO:john.doe@example.comaaaaaaaaaa
+ aaaaaa
+ aaaaaaaaaaa
+ folding test
+ ffolding test
 DTSTART:19970714T170000Z
 VERSION:19970715T035959Z
 SUMMARY:Bastille Day Party
