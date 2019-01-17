@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
-#define DEBUG 1
+#define DEBUG 0
 
 Calendar * calendar;
 
@@ -87,7 +87,6 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     /* Raw values */
     char * version = findProperty(entire_file, 0, numLines, "VERSION:");
     char * prodId = findProperty(entire_file, 0, numLines, "PRODID:");
-
 
     /* Trim any whitespace */
     /* Check to make sure that version is a number */
@@ -178,10 +177,15 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     /* Free the 2d array */
     free(calendarProperties);
 
+    /* Allocate some memory for the events */
+    (*obj)->events = initializeList(printEvent, deleteEvent, compareEvents);
+
     /* Start tracking the events */
     for (int beginLine = 1; beginLine < numLines; ) {
         if (!strcasecmp(entire_file[beginLine], "BEGIN:VEVENT\r\n")) {
-            printf("NEW EVENT\n");
+            #if DEBUG
+                printf("NEW EVENT\n");
+            #endif
             int endLine = beginLine + 1;
             /* Track the end */
             for ( ; endLine < numLines; endLine++) {
@@ -189,6 +193,32 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                     break;
                 }
             }
+
+            /* Required property for all events */
+            char * UID = findProperty(entire_file, beginLine, numLines, "UID:");
+            char * output = NULL;
+            
+            if (UID == NULL || !strlen(UID)) {
+                for (int i = 0; i < numLines; i++) free(entire_file[i]);
+                free(entire_file);
+                #if DEBUG
+                    printf("Error! Some event is missing a UID\n");
+                #endif
+                return OTHER_ERROR;
+            }
+
+            Event * newEvent = NULL;
+            newEvent = (Event *) calloc ( 1, sizeof(Event) );
+            strcpy(newEvent->UID, UID);
+            
+            output = printEvent(newEvent);
+            printf("%s\n", output);
+            
+            free(UID);
+            free(newEvent);
+            free(output);
+
+
             /* At this point we know where the event started and ended */
             int numP = 0, errors = 0;
             char ** ep = getAllPropertyNames(entire_file, beginLine, numLines, &numP, &errors);
@@ -202,10 +232,11 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 return OTHER_ERROR;
             }
 
-            for (int x = 0; x < numP; x++) {
-                printf("\t%s\n", ep[x]);
-            }
-
+            #if DEBUG
+                for (int x = 0; x < numP; x++) {
+                    printf("\t%s\n", ep[x]);
+                }
+            #endif
             /* Once we're done */
             beginLine = endLine + 1;
         } else {
@@ -657,8 +688,19 @@ void deleteEvent(void* toBeDeleted) {
 int compareEvents(const void* first, const void* second) {
     return 0;
 }
+/* Temporary print */
 char* printEvent(void* toBePrinted) {
-    return NULL;
+    if (toBePrinted == NULL) return NULL;
+
+    Event * event = NULL;
+    char * result = NULL;
+    
+    event = (Event *) toBePrinted;
+    result = (char *) calloc(1, 8);
+    strcpy(result, "\tEVENT:");
+    result = (char *) realloc( result, strlen(result) + strlen(event->UID) + 1);
+    strcat(result, event->UID);
+    return result;
 }
 /* PROPERTIES */
 void deleteProperty(void* toBeDeleted) {
