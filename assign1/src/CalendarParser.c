@@ -87,14 +87,14 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     /* Raw values */
     char * version = findProperty(entire_file, 0, numLines, "VERSION:");
     char * prodId = findProperty(entire_file, 0, numLines, "PRODID:");
-    
+
 
     /* Trim any whitespace */
     /* Check to make sure that version is a number */
     if (version == NULL || strlen(version) == 0) {
         #if DEBUG
             printf("Error: Version is NULL\n");
-        #endif 
+        #endif
         /* Free memory */
         if (prodId) free(prodId);
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
@@ -144,7 +144,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     int N = 0, errors = 0;
     char ** calendarProperties = getAllPropertyNames(entire_file, 0, numLines, &N, &errors);
     /* If any errors occured */
-    
+
     if (errors || !N) {
         for (int x = 0; x < N; x++) free(calendarProperties[x]);
         free(calendarProperties);
@@ -152,7 +152,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         free(entire_file);
         return OTHER_ERROR;
     }
-    
+
     (*obj)->properties = initializeList(printProperty, deleteProperty, compareProperties);
 
     /* Grab all calendar properties */
@@ -160,24 +160,18 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         /* We already checked those guys */
         if (strcasecmp(calendarProperties[x], "PRODID:") && strcasecmp(calendarProperties[x], "VERSION:")) {
             char * value = findProperty(entire_file, 0, numLines, calendarProperties[x]);
-            //printf("Name = %s\nValue = %s\n\n", calendarProperties[x], value); 
-            Property * new_prop = (Property *) malloc (sizeof (Property) + strlen(value) + 1);
+            Property * prop = (Property *) malloc ( sizeof (Property) + sizeof(char) * (1 + strlen(value)));
             int j = 0;
-            for ( ; j < strlen(calendarProperties[x]) - 1; j++)
-                new_prop->propName[j] = calendarProperties[x][j];
-            new_prop->propName[j] = '\0';
-            strcpy(new_prop->propDescr, value);
-            strcat(new_prop->propDescr, "\0");
+            /* We don't want to include the delimeter */
+            for ( ; j < strlen(calendarProperties[x]); j++)
+                prop->propName[j] = calendarProperties[x][j];
+            prop->propName[j] = '\0';
+            strcpy(prop->propDescr, value);
+            insertBack((*obj)->properties, prop);
 
-            insertBack((*obj)->properties, new_prop);
-           
             free(value);
         }
     }
-
-    char * test = toString((*obj)->properties);
-    printf("%s\n", test);
-    free(test);
 
     //(*obj)->events = initializeList(printEvent, deleteEvent, compareEvents);
 
@@ -264,7 +258,7 @@ char * getToken ( char * entireFile, int * index) {
         } else if (entireFile[*index] == '\n') {
             #if DEBUG
                 printf("Encountered a backslash-n. Exiting.\n");
-            #endif 
+            #endif
             if (line) free(line);
             *index = -1;
             return NULL;
@@ -321,7 +315,7 @@ char ** readFile ( char * fileName, int * numLines ) {
     }
 
     fclose(calendarFile);
-    
+
     if (!index || !entireFile) {
         return NULL;
     }
@@ -376,7 +370,7 @@ char ** readFile ( char * fileName, int * numLines ) {
         /* Add the \0 to indicate line ending */
         returnFile[numTokens][strlen(returnFile[numTokens])] = '\0';
         numTokens++;
-        
+
     }
     /* Free memory & close File */
     free(entireFile);
@@ -458,7 +452,7 @@ int checkFormatting (char ** entire_file, int numLines) {
     if (numLines < 2) return 0;
     if (strcasecmp(entire_file[0], "BEGIN:VCALENDAR\r\n")) return 0;
     if (strcasecmp(entire_file[numLines - 1], "END:VCALENDAR\r\n")) return 0;
-    
+
     int isEventOpen = 0;
     int isAlarmOpen = 0;
     int numEventsOpened = 0, numEventsClosed = 0;
@@ -469,7 +463,7 @@ int checkFormatting (char ** entire_file, int numLines) {
         if (strcasecmp(entire_file[i], "BEGIN:VEVENT\r\n") == 0) {
             if (isEventOpen) return 0; /* There's an open event */
             if (isAlarmOpen) return 0; /* There's an open alarm */
-            
+
             isEventOpen = 1;
             numEventsOpened++;
         } else if (strcasecmp(entire_file[i], "END:VEVENT\r\n") == 0) {
@@ -497,7 +491,7 @@ int checkFormatting (char ** entire_file, int numLines) {
         } else if (entire_file[i][0] != ' ' && entire_file[i][0] != '\t') {
             int lineLength = strlen(entire_file[i]);
             int colons = 0;
-            for (int j = 1; j < lineLength; j++) 
+            for (int j = 1; j < lineLength; j++)
                 colons += (entire_file[i][j] == ':' || entire_file[i][j] == ';');
             if (!colons) error = 1;
         }
@@ -507,26 +501,25 @@ int checkFormatting (char ** entire_file, int numLines) {
 }
 /* prints the calendar */
 char * printCalendar (const Calendar * obj) {
-    
-    char * result = (char *) malloc(30);
-    if (obj == NULL) {
-        strcat(result, "CALENDAR IS NULL!\n");
-        return result;
-    }
-    strcat(result, "==========CALENDAR==========\n");
-    
-    result = realloc(result, strlen(result) + 9);
-    strcat(result, "VERSION:");
-    
-    int numLength = snprintf(NULL, 0, "%f", obj->version);
-    result = realloc(result, strlen(result) + numLength + 2);
-    snprintf(result + strlen(result), numLength + 2, "%f\n", obj->version);
+    char * result = NULL;
 
-    result = realloc(result, strlen(result) + 8);
+    if (obj == NULL) return NULL;
+    result = (char *) malloc ( 10 );
+    strcpy(result, "CALENDAR\n");
+    result = (char *) realloc (result, strlen(result) + 8 + strlen(obj->prodID) + 1);
     strcat(result, "PRODID:");
-
-    result = realloc(result, strlen(result) + strlen(obj->prodID) + 2);
     strcat(result, obj->prodID);
+    strcat(result, "\n");
+
+    char version[200 + 10];
+    sprintf(version, "VERSION:%f", obj->version);
+
+    result = (char *) realloc (result, strlen(result) + strlen(version) + 1);
+    strcat(result, version);
+
+    char * otherProps = toString(obj->properties);
+    result = (char *) realloc (result, strlen(result) + strlen(otherProps) + 2);
+    strcat(result, otherProps);
     strcat(result, "\n");
 
     return result;
@@ -591,7 +584,7 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
                 result[*numElements][strlen(result[*numElements])] = '\0';
                 /* Increase the size of array */
                 *numElements += 1;
-            } 
+            }
         }
         index++;
     }
@@ -617,7 +610,7 @@ char* printEvent(void* toBePrinted) {
         return result;
     }
     Event * e = (Event *) toBePrinted;
-    
+
     result = (char *) malloc(19);
     strcpy(result, "====EVENT====\nUID:");
     result = (char *) realloc(result, strlen(result) + strlen(e->UID) + 2);
@@ -636,11 +629,12 @@ int compareProperties(const void* first, const void* second) {
 }
 char* printProperty(void* toBePrinted) {
     Property * p = (Property *) toBePrinted;
-    char * result = (char *) malloc ( strlen(p->propDescr) + strlen(p->propName) + 2);
-    /* Concat */
-    strcat(result, p->propName);
-    strcat(result, ":");
+    char * result = (char *) malloc ( strlen(p->propName) + 1);
+    int i = 0;
+    for ( ; i < strlen(p->propName); i++)
+        result[i] = p->propName[i];
+    result[i] = '\0';
+    result = (char *) realloc (  result, strlen(result) + strlen(p->propDescr) + 1);
     strcat(result, p->propDescr);
-    /* Return */
     return result;
 }
