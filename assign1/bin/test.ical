@@ -19,6 +19,7 @@ DESCRIPTION: this is a
  folded description!
 END:VALARM
 END:VEVENT
+SMTH;something
 PRODID:te
  st
  az
