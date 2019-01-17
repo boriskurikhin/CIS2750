@@ -8,10 +8,11 @@
 Calendar * calendar;
 
 char ** readFile (char * , int *);
-char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyName, char );
+char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyName );
 char * getToken ( char * entireFile, int * index);
 void trim (char ** );
 int checkFormatting( char ** entireFile, int numLines);
+char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * numElements, int * errors);
 
 /* ALL PROPERTIES OF CALENDAR */
 const char calProperties[2][50] = { "CALSCALE", "METHOD" };
@@ -36,7 +37,7 @@ int main(int argv, char ** argc) {
     char * output = printCalendar(calendar);
     printf("%s", output);
     free(output);
-    
+
     deleteCalendar(calendar);
 
     return 0;
@@ -84,8 +85,9 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
     *obj = (Calendar *) malloc ( sizeof ( Calendar ) );
     /* Raw values */
-    char * version = findProperty(entire_file, 1, numLines, "VERSION", ':');
-    char * prodId = findProperty(entire_file, 1, numLines, "PRODID", ':');
+    char * version = findProperty(entire_file, 0, numLines, "VERSION:");
+    char * prodId = findProperty(entire_file, 0, numLines, "PRODID:");
+    
 
     /* Trim any whitespace */
     /* Check to make sure that version is a number */
@@ -137,6 +139,58 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     /* Free */
     if (version) free (version);
     if (prodId) free (prodId);
+
+    /* After we're done extracting the version and prodId, we can begin extracting all other calendar properties */
+    int N = 0, errors = 0;
+    char ** calendarProperties = getAllPropertyNames(entire_file, 0, numLines, &N, &errors);
+    /* If any errors occured */
+    
+    if (errors || !N) {
+        for (int x = 0; x < N; x++) free(calendarProperties[x]);
+        free(calendarProperties);
+        for (int i = 0; i < numLines; i++) free(entire_file[i]);
+        free(entire_file);
+        return OTHER_ERROR;
+    }
+    
+    (*obj)->properties = initializeList(printProperty, deleteProperty, compareProperties);
+
+    /* Grab all calendar properties */
+    for (int x = 0; x < N; x++) {
+        /* We already checked those guys */
+        if (strcasecmp(calendarProperties[x], "PRODID:") && strcasecmp(calendarProperties[x], "VERSION:")) {
+            char * value = findProperty(entire_file, 0, numLines, calendarProperties[x]);
+            //printf("Name = %s\nValue = %s\n\n", calendarProperties[x], value); 
+            Property * new_prop = (Property *) malloc (sizeof (Property) + strlen(value) + 1);
+            int j = 0;
+            for ( ; j < strlen(calendarProperties[x]) - 1; j++)
+                new_prop->propName[j] = calendarProperties[x][j];
+            new_prop->propName[j] = '\0';
+            strcpy(new_prop->propDescr, value);
+            strcat(new_prop->propDescr, "\0");
+
+            insertBack((*obj)->properties, new_prop);
+           
+            free(value);
+        }
+    }
+
+    char * test = toString((*obj)->properties);
+    printf("%s\n", test);
+    free(test);
+
+    //(*obj)->events = initializeList(printEvent, deleteEvent, compareEvents);
+
+    // for (int k = 0; k < numLines; k++) {
+    //     int numE = 0, errors = 0;
+    //     char ** test = getAllPropertyNames(entire_file, k, numLines, &numE, &errors);
+    //     if (test == NULL) continue;
+    //     for (int j = 0; j < numE; j++) {
+    //         char * t = findProperty(entire_file, k, numLines, test[j]);
+    //         printf("%s%s\n", test[j], t);
+    //     }
+    //     printf("========================\n");
+    // }
 
     for (int i = 0; i < numLines; i++) free(entire_file[i]);
     free(entire_file);
@@ -332,74 +386,72 @@ char ** readFile ( char * fileName, int * numLines ) {
 }
 /* Extracts property */
 /* [Begin Index, End Index) */
-char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyName, char matchDelim) {
-    int pLen = strlen(propertyName);
+char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyName ) {
+    int li = beginIndex, opened = 0, closed = 0, currentlyFolding = 0, index = 0;
     char * result = NULL;
-    int index = 0, foundProperty = 0, propertyCount = 0, blockBegan = 0, blockEnded = 0;
-    /* Doesn't make sense */
-    if (endIndex < beginIndex) return NULL;
-    /* Run through ea. line */
-    for (int i = beginIndex; i < endIndex; i++) {
-        int len = strlen(file[i]);
-        /* See if we're already tracking down a property */
-        if (foundProperty && blockBegan == blockEnded) {
-            if (isspace(file[i][0])) {
-                /* Only if it's folded */
-                for (int j = 1; j < len && file[i][j] != '\r'; j++) {
-                    if (result == NULL) result = (char *) malloc(2);
-                    else result = realloc(result, index + 2);
-                    result[index] = file[i][j];
-                    result[index + 1] = '\0';
-                    index++;
-                }
-            } else {
-                /* Only returns result if it's within the range */
-                foundProperty = 0;
-                continue;
+    /* Doesn't start properly */
+    if ( strcasecmp(file[li], "BEGIN:VCALENDAR\r\n") && strcasecmp(file[li], "BEGIN:VALARM\r\n") && strcasecmp(file[li], "BEGIN:VEVENT\r\n") )
+        return NULL;
+    while (li < endIndex) {
+        if ( !strcasecmp(file[li], "BEGIN:VCALENDAR\r\n") || !strcasecmp(file[li], "BEGIN:VALARM\r\n") || !strcasecmp(file[li], "BEGIN:VEVENT\r\n") ) {
+            opened++;
+        } else if ( !strcasecmp(file[li], "END:VCALENDAR\r\n") || !strcasecmp(file[li], "END:VALARM\r\n") || !strcasecmp(file[li], "END:VEVENT\r\n") ) {
+            closed++;
+            if (closed == opened) {
+                /* Basically exit the program */
+                if (result) free (result);
+                return NULL;
             }
         } else {
-            /* Check for blocks */
-            if (len > 3) if (toupper(file[i][0]) == 'E' && toupper(file[i][1]) == 'N' && toupper(file[i][2]) == 'D' && file[i][3] == ':') blockEnded++;
-            if (len > 5) if (toupper(file[i][0]) == 'B' && toupper(file[i][1]) == 'E' && toupper(file[i][2]) == 'G' && toupper(file[i][3]) == 'I' && toupper(file[i][4]) == 'N' && file[i][5] == ':') blockBegan++;
-            /* Make sure it fits (that's what she said) and that we're not inside some block */
-            if (len > (pLen + 1) && (blockBegan == blockEnded)) {
-                int matches = 1;
-                int j = 0;
-                for (; j < pLen; j++) {
-                    if (tolower(file[i][j]) != tolower(propertyName[j])) {
-                        matches = 0;
-                        break;
-                    }
-                }
-                /* After we matched property name, check the delimeter too */
-                if (matches && file[i][j] == matchDelim) {
-                    /* Propery occured more than once */
-                    if (++propertyCount > 1) {
-                        free(result);
-                        return NULL;
-                    }
-                    /* More than one property exists */
-                    ++j;
-                    /* Skip delimeter and began writing */
-                    for ( ; j < len; j++) {
-                        if (file[i][j] == '\r') {
-                            if ((i + 1) < endIndex) 
-                                foundProperty = (file[i + 1][0] == ' ');
-                            break;
-                        }
-                        if (result == NULL) result = (char *) malloc(2);
-                        else result = realloc(result, index + 2);
-                        result[index] = file[i][j];
+            /* If we're on the current layer */
+            if (opened - 1 == closed) {
+                if ((file[li][0] == '\t' || file[li][0] == ' ') && currentlyFolding) {
+                    for (int j = 1; j < strlen(file[li]) - 2; j++) {
+                        if (!result) result = malloc(2);
+                        else result = realloc(result, strlen(result) + 2);
+                        result[index] = file[li][j];
                         result[index + 1] = '\0';
                         index++;
-
-                        foundProperty = 1;
+                    }
+                    if (li + 1 < endIndex) {
+                        if (file[li + 1][0] == ' ' || file[li + 1][0] == '\t') {
+                            currentlyFolding = 1;
+                        } else {
+                            return result;
+                        }
+                    } else {
+                        return result;
+                    }
+                } else {
+                    if (strlen(propertyName) <= strlen(file[li]) - 2) {
+                        int match = 1, j = 0;
+                        for (; j < strlen(propertyName); j++)
+                            if (propertyName[j] != file[li][j]) match = 0;
+                        if (match) {
+                            for (; j < strlen(file[li]) - 2; j++) {
+                                if (!result) result = malloc(2);
+                                else result = realloc(result, strlen(result) + 2);
+                                result[index] = file[li][j];
+                                result[index + 1] = '\0';
+                                index++;
+                            }
+                            if (li + 1 < endIndex) {
+                                if (file[li + 1][0] == ' ' || file[li + 1][0] == '\t') {
+                                    currentlyFolding = 1;
+                                } else {
+                                    return result;
+                                }
+                            } else {
+                                return result;
+                            }
+                        }
                     }
                 }
             }
         }
+        li++;
     }
-    return result;
+    return NULL;
 }
 /* Verifies that all alarms & events are distributed correctly */
 int checkFormatting (char ** entire_file, int numLines) {
@@ -411,6 +463,7 @@ int checkFormatting (char ** entire_file, int numLines) {
     int isAlarmOpen = 0;
     int numEventsOpened = 0, numEventsClosed = 0;
     int numAlarmsOpened = 0, numAlarmsClosed = 0;
+    int error = 0;
 
     for (int i = 1; i < numLines - 1; i++) {
         if (strcasecmp(entire_file[i], "BEGIN:VEVENT\r\n") == 0) {
@@ -441,16 +494,25 @@ int checkFormatting (char ** entire_file, int numLines) {
 
             isAlarmOpen = 0;
             numAlarmsClosed++;
+        } else if (entire_file[i][0] != ' ' && entire_file[i][0] != '\t') {
+            int lineLength = strlen(entire_file[i]);
+            int colons = 0;
+            for (int j = 1; j < lineLength; j++) 
+                colons += (entire_file[i][j] == ':' || entire_file[i][j] == ';');
+            if (!colons) error = 1;
         }
     }
     /* Big Return */
-    return !isAlarmOpen && !isEventOpen && numAlarmsOpened == numAlarmsClosed && numEventsOpened == numEventsClosed;
+    return !isAlarmOpen && !isEventOpen && numAlarmsOpened == numAlarmsClosed && numEventsOpened == numEventsClosed && !error;
 }
 /* prints the calendar */
 char * printCalendar (const Calendar * obj) {
-    if (obj == NULL) return "CALENDAR IS NULL\n";
     
     char * result = (char *) malloc(30);
+    if (obj == NULL) {
+        strcat(result, "CALENDAR IS NULL!\n");
+        return result;
+    }
     strcat(result, "==========CALENDAR==========\n");
     
     result = realloc(result, strlen(result) + 9);
@@ -467,5 +529,118 @@ char * printCalendar (const Calendar * obj) {
     strcat(result, obj->prodID);
     strcat(result, "\n");
 
+    return result;
+}
+/* Returns a list of strings representing property names given an index */
+/* All strings are terminated with \0 and nothing else */
+char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * numElements, int * errors) {
+    int index = beginIndex;
+    int opened = 0;
+    int closed = 0;
+    char ** result = NULL;
+
+    /* Must start with begin or end index */
+    if ( strcasecmp(file[index], "BEGIN:VCALENDAR\r\n") && strcasecmp(file[index], "BEGIN:VALARM\r\n") && strcasecmp(file[index], "BEGIN:VEVENT\r\n") ) {
+        return NULL;
+    }
+
+    while (index < endIndex) {
+        char * ln = file[index];
+        /* BEGIN */
+        if (toupper(ln[0]) == 'B' && toupper(ln[1]) == 'E' && toupper(ln[2]) == 'G' && toupper(ln[3]) == 'I' && toupper(ln[4]) == 'N') {
+            opened++;
+        /* END */
+        } else if (toupper(ln[0]) == 'E' && toupper(ln[1]) == 'N' && toupper(ln[2]) == 'D') {
+            closed++;
+            if (opened == closed) {
+                break;
+            }
+        /* FOLDED */
+        } else if (ln[0] == ' ' || ln[0] == '\t') {
+        } else {
+            if (opened - 1 == closed) {
+                int colonIndex = 0, foundColon = 0;
+                /* Find colon index */
+                for (int i = 0; i < strlen(ln); i++) {
+                    colonIndex++;
+                    if (ln[i] == ':' || ln[i] == ';') {
+                        foundColon = 1;
+                        break;
+                    }
+                }
+                /* if we have not found a colon of any sort it's an error */
+                *errors += !foundColon;
+
+                char * line = (char *) malloc (colonIndex);
+                for (int i = 0; i < colonIndex; i++) {
+                    line[i] = ln[i];
+                }
+                line[colonIndex] = '\0';
+
+                /* After we found the event name */
+                if (result == NULL) {
+                    result = malloc ( sizeof (char *) );
+                } else {
+                    result = realloc ( result, sizeof (char *) * ( *numElements + 1) ) ;
+                }
+                /* Copy it into the resulting array */
+                result[*numElements] = malloc(strlen(line) + 1);
+                strcpy(result[*numElements], line);
+                /* Free & append the null terminator */
+                free(line);
+                result[*numElements][strlen(result[*numElements])] = '\0';
+                /* Increase the size of array */
+                *numElements += 1;
+            } 
+        }
+        index++;
+    }
+    return result;
+}
+/* <-----HELPER FUNCTIONS------> */
+
+/* EVENTS */
+void deleteEvent(void* toBeDeleted) {
+    Event * e = (Event *) toBeDeleted;
+    /* Delete all the other things */
+    free(e);
+}
+int compareEvents(const void* first, const void* second) {
+    return 0;
+}
+char* printEvent(void* toBePrinted) {
+    char * result = NULL;
+    if (toBePrinted == NULL) {
+        /* NULL EVENT */
+        result = (char *) malloc (11);
+        strcpy(result, "NULL EVENT");
+        return result;
+    }
+    Event * e = (Event *) toBePrinted;
+    
+    result = (char *) malloc(19);
+    strcpy(result, "====EVENT====\nUID:");
+    result = (char *) realloc(result, strlen(result) + strlen(e->UID) + 2);
+    strcpy(result, e->UID);
+    strcpy(result, "\n");
+
+    return result;
+}
+/* PROPERTIES */
+void deleteProperty(void* toBeDeleted) {
+    Property * p = (Property *) toBeDeleted;
+    free(p);
+}
+int compareProperties(const void* first, const void* second) {
+    return 0;
+}
+char* printProperty(void* toBePrinted) {
+    Property * p = (Property *) toBePrinted;
+    char * result = (char *) malloc ( strlen(p->propDescr) + strlen(p->propName) + 2);
+    /* Concat */
+    strcat(result, p->propName);
+    strcat(result, ":");
+    strcat(result, p->propDescr);
+    /* Return */
     return result;
 }

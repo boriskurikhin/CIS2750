@@ -7,10 +7,10 @@ CFLAGS = -Wall -ansi -pedantic -std=c11 -Iinclude/
 
 all: list parser
 
-parser: src/CalendarParser.c
-	$(CC) $(CFLAGS) src/CalendarParser.c -o bin/parser.out
 list: src/LinkedListAPI.c
-	$(CC) $(CFLAGS) src/LinkedListAPI.c -c -o bin/list.out
+	$(CC) $(CFLAGS) src/LinkedListAPI.c -c -o bin/list.o
+parser: src/CalendarParser.c bin/list.o
+	$(CC) $(CFLAGS) src/CalendarParser.c bin/list.o -o bin/parser.out
 clean:
 	rm bin/parser.out
 	rm bin/list.out
