@@ -83,7 +83,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         return OTHER_ERROR;
     }
 
-    *obj = (Calendar *) malloc ( sizeof ( Calendar ) );
+    *obj = (Calendar *) calloc ( 1, sizeof ( Calendar ) );
     /* Raw values */
     char * version = findProperty(entire_file, 0, numLines, "VERSION:");
     char * prodId = findProperty(entire_file, 0, numLines, "PRODID:");
@@ -160,7 +160,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         /* We already checked those guys */
         if (strcasecmp(calendarProperties[x], "PRODID:") && strcasecmp(calendarProperties[x], "VERSION:")) {
             char * value = findProperty(entire_file, 0, numLines, calendarProperties[x]);
-            Property * prop = (Property *) malloc ( sizeof (Property) + sizeof(char) * (1 + strlen(value)));
+            Property * prop = (Property *) calloc ( 1, sizeof (Property) + sizeof(char) * (1 + strlen(value)));
             int j = 0;
             /* We don't want to include the delimeter */
             for ( ; j < strlen(calendarProperties[x]); j++)
@@ -171,7 +171,11 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
             free(value);
         }
+        /* Free the element */
+        free(calendarProperties[x]);
     }
+    /* Free the 2d array */
+    free(calendarProperties);
 
     //(*obj)->events = initializeList(printEvent, deleteEvent, compareEvents);
 
@@ -198,6 +202,7 @@ void deleteCalendar(Calendar * obj) {
     // if (obj->events) freeList(obj->events);
     // if (obj->properties) freeList(obj->properties);
     /* lastly */
+    freeList( obj->properties );
     free ( obj );
 }
 /* Assumes everything ends with \r\n */
@@ -211,7 +216,7 @@ void trim (char ** string) {
     while (endIndex >= beginIndex && isspace(str[endIndex])) endIndex--;
 
     newLength = endIndex - beginIndex + 1;
-    newString = (char *) malloc (newLength + 3);
+    newString = (char *) calloc (1, newLength + 3 );
     for (i = beginIndex, j = 0; i <= endIndex; i++, j++) {
         newString[j] = str[i];
     }
@@ -264,7 +269,7 @@ char * getToken ( char * entireFile, int * index) {
             return NULL;
         } else {
             if (line == NULL) {
-                line = (char *) malloc (2);
+                line = (char *) calloc (1, 2 );
                 line[lineIndex] = entireFile[*index];
                 line[lineIndex + 1] = '\0';
             } else {
@@ -302,7 +307,7 @@ char ** readFile ( char * fileName, int * numLines ) {
         }
         /* Realloc to insert new character */
         if (entireFile == NULL) {
-            entireFile = (char *) malloc( 1 );
+            entireFile = (char *) calloc( 1, 1 );
             entireFile[0] = (char) buffer;
         } else {
             entireFile = realloc(entireFile, index + 2);
@@ -349,7 +354,7 @@ char ** readFile ( char * fileName, int * numLines ) {
             return NULL;
         }
 
-        char * line = (char *) malloc(tokenSize + 3);
+        char * line = (char *) calloc(1, tokenSize + 3 );
         /* Create line from token, adding back in the delimeter */
         strcpy(line, token);
         free (token);
@@ -359,12 +364,12 @@ char ** readFile ( char * fileName, int * numLines ) {
         line[tokenSize + 2] = '\0';
         /* Allocate/Reallocate memory dynamically */
         if (returnFile == NULL) {
-            returnFile = malloc(sizeof(char *));
+            returnFile = calloc(1, sizeof(char *) );
         } else {
             returnFile = realloc(returnFile, sizeof(char *) * (numTokens + 1));
         }
         /* Create enough space in that index for the line of text */
-        returnFile[numTokens] = (char *) malloc ( strlen(line) + 1);
+        returnFile[numTokens] = (char *) calloc (1,  strlen(line) + 1);
         strcpy(returnFile[numTokens], line);
         free(line);
         /* Add the \0 to indicate line ending */
@@ -401,7 +406,7 @@ char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyN
             if (opened - 1 == closed) {
                 if ((file[li][0] == '\t' || file[li][0] == ' ') && currentlyFolding) {
                     for (int j = 1; j < strlen(file[li]) - 2; j++) {
-                        if (!result) result = malloc(2);
+                        if (!result) result = calloc(1, 2);
                         else result = realloc(result, strlen(result) + 2);
                         result[index] = file[li][j];
                         result[index + 1] = '\0';
@@ -423,7 +428,7 @@ char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyN
                             if (propertyName[j] != file[li][j]) match = 0;
                         if (match) {
                             for (; j < strlen(file[li]) - 2; j++) {
-                                if (!result) result = malloc(2);
+                                if (!result) result = calloc(1, 2);
                                 else result = realloc(result, strlen(result) + 2);
                                 result[index] = file[li][j];
                                 result[index + 1] = '\0';
@@ -504,7 +509,7 @@ char * printCalendar (const Calendar * obj) {
     char * result = NULL;
 
     if (obj == NULL) return NULL;
-    result = (char *) malloc ( 10 );
+    result = (char *) calloc ( 1, 10 );
     strcpy(result, "CALENDAR\n");
     result = (char *) realloc (result, strlen(result) + 8 + strlen(obj->prodID) + 1);
     strcat(result, "PRODID:");
@@ -521,6 +526,8 @@ char * printCalendar (const Calendar * obj) {
     result = (char *) realloc (result, strlen(result) + strlen(otherProps) + 2);
     strcat(result, otherProps);
     strcat(result, "\n");
+
+    free(otherProps);
 
     return result;
 }
@@ -564,7 +571,17 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
                 /* if we have not found a colon of any sort it's an error */
                 *errors += !foundColon;
 
-                char * line = (char *) malloc (colonIndex);
+                if (*errors) {
+                    #if DEBUG
+                        printf("Seems that there is a content line that is missing a colon of sorts\n");
+                    #endif 
+                    for (int j = 0; j < *numElements; j++)
+                        free ( result[j] );
+                    if (result) free(result);
+                    return NULL;
+                }
+
+                char * line = (char *) malloc ( colonIndex );
                 for (int i = 0; i < colonIndex; i++) {
                     line[i] = ln[i];
                 }
@@ -572,12 +589,12 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
 
                 /* After we found the event name */
                 if (result == NULL) {
-                    result = malloc ( sizeof (char *) );
+                    result = calloc (1, sizeof (char *) );
                 } else {
                     result = realloc ( result, sizeof (char *) * ( *numElements + 1) ) ;
                 }
                 /* Copy it into the resulting array */
-                result[*numElements] = malloc(strlen(line) + 1);
+                result[*numElements] = calloc(1, strlen(line) + 1 );
                 strcpy(result[*numElements], line);
                 /* Free & append the null terminator */
                 free(line);
@@ -605,13 +622,13 @@ char* printEvent(void* toBePrinted) {
     char * result = NULL;
     if (toBePrinted == NULL) {
         /* NULL EVENT */
-        result = (char *) malloc (11);
+        result = (char *) calloc (1, 11);
         strcpy(result, "NULL EVENT");
         return result;
     }
     Event * e = (Event *) toBePrinted;
 
-    result = (char *) malloc(19);
+    result = (char *) calloc(1, 19);
     strcpy(result, "====EVENT====\nUID:");
     result = (char *) realloc(result, strlen(result) + strlen(e->UID) + 2);
     strcpy(result, e->UID);
@@ -622,19 +639,24 @@ char* printEvent(void* toBePrinted) {
 /* PROPERTIES */
 void deleteProperty(void* toBeDeleted) {
     Property * p = (Property *) toBeDeleted;
+    /* We don't have to free the flexible array */
     free(p);
 }
 int compareProperties(const void* first, const void* second) {
     return 0;
 }
+/* Prints an individual property */
 char* printProperty(void* toBePrinted) {
+    if (toBePrinted == NULL) return NULL;
     Property * p = (Property *) toBePrinted;
-    char * result = (char *) malloc ( strlen(p->propName) + 1);
-    int i = 0;
-    for ( ; i < strlen(p->propName); i++)
-        result[i] = p->propName[i];
-    result[i] = '\0';
+    /* Allocates enough space for the property name and null-terminator */
+    char * result = (char *) calloc ( 1, strlen(p->propName) + 1 );
+    /* Copies the property name into the resulting string */
+    strcpy(result, p->propName);
+    /* Allocates some more memory for the property description */
     result = (char *) realloc (  result, strlen(result) + strlen(p->propDescr) + 1);
+    /* Appends the description onto the result */
     strcat(result, p->propDescr);
+    /* Returns result */
     return result;
 }
