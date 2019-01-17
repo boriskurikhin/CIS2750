@@ -160,7 +160,8 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         /* We already checked those guys */
         if (strcasecmp(calendarProperties[x], "PRODID:") && strcasecmp(calendarProperties[x], "VERSION:")) {
             char * value = findProperty(entire_file, 0, numLines, calendarProperties[x]);
-            Property * prop = (Property *) calloc ( 1, sizeof (Property) + sizeof(char) * (1 + strlen(value)));
+            Property * prop = NULL;
+            prop = (Property *) calloc ( 1, sizeof (Property) + sizeof(char) * (1 + strlen(value)));
             int j = 0;
             /* We don't want to include the delimeter */
             for ( ; j < strlen(calendarProperties[x]); j++)
@@ -208,7 +209,7 @@ void deleteCalendar(Calendar * obj) {
 /* Assumes everything ends with \r\n */
 void trim (char ** string) {
     char * str = *string;
-    char * newString;
+    char * newString = NULL;
     if (str == NULL || !strlen(str)) return;
 
     int beginIndex = 0, length = strlen(str), endIndex = length - 2, newLength, i, j;
@@ -354,7 +355,8 @@ char ** readFile ( char * fileName, int * numLines ) {
             return NULL;
         }
 
-        char * line = (char *) calloc(1, tokenSize + 3 );
+        char * line = NULL;
+        line = (char *) calloc(1, tokenSize + 3 );
         /* Create line from token, adding back in the delimeter */
         strcpy(line, token);
         free (token);
@@ -581,7 +583,9 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
                     return NULL;
                 }
 
-                char * line = (char *) malloc ( colonIndex );
+                char * line = NULL;
+                line = (char *) calloc (1, colonIndex );
+
                 for (int i = 0; i < colonIndex; i++) {
                     line[i] = ln[i];
                 }
@@ -650,7 +654,8 @@ char* printProperty(void* toBePrinted) {
     if (toBePrinted == NULL) return NULL;
     Property * p = (Property *) toBePrinted;
     /* Allocates enough space for the property name and null-terminator */
-    char * result = (char *) calloc ( 1, strlen(p->propName) + 1 );
+    char * result = NULL;
+    result = (char *) calloc ( 1, strlen(p->propName) + 1 );
     /* Copies the property name into the resulting string */
     strcpy(result, p->propName);
     /* Allocates some more memory for the property description */
