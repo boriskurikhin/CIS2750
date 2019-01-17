@@ -178,6 +178,41 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     /* Free the 2d array */
     free(calendarProperties);
 
+    /* Start tracking the events */
+    for (int beginLine = 1; beginLine < numLines; ) {
+        if (!strcasecmp(entire_file[beginLine], "BEGIN:VEVENT\r\n")) {
+            printf("NEW EVENT\n");
+            int endLine = beginLine + 1;
+            /* Track the end */
+            for ( ; endLine < numLines; endLine++) {
+                if (!strcasecmp(entire_file[endLine], "END:VEVENT\r\n")) {
+                    break;
+                }
+            }
+            /* At this point we know where the event started and ended */
+            int numP = 0, errors = 0;
+            char ** ep = getAllPropertyNames(entire_file, beginLine, numLines, &numP, &errors);
+            
+            /* Error handling */
+            if (errors) {
+                for (int x = 0; x < numP; x++) free(ep[x]);
+                free(ep);
+                for (int i = 0; i < numLines; i++) free(entire_file[i]);
+                free(entire_file);
+                return OTHER_ERROR;
+            }
+
+            for (int x = 0; x < numP; x++) {
+                printf("\t%s\n", ep[x]);
+            }
+
+            /* Once we're done */
+            beginLine = endLine + 1;
+        } else {
+            beginLine++;
+        }
+    }
+
     //(*obj)->events = initializeList(printEvent, deleteEvent, compareEvents);
 
     // for (int k = 0; k < numLines; k++) {
@@ -531,6 +566,9 @@ char * printCalendar (const Calendar * obj) {
 
     free(otherProps);
 
+    /* At this point we have all calendar properties parsed and ready to go */
+    /* This is where we going to have to implement events */
+
     return result;
 }
 /* Returns a list of strings representing property names given an index */
@@ -612,33 +650,15 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
     return result;
 }
 /* <-----HELPER FUNCTIONS------> */
-
 /* EVENTS */
 void deleteEvent(void* toBeDeleted) {
-    Event * e = (Event *) toBeDeleted;
-    /* Delete all the other things */
-    free(e);
+    return;
 }
 int compareEvents(const void* first, const void* second) {
     return 0;
 }
 char* printEvent(void* toBePrinted) {
-    char * result = NULL;
-    if (toBePrinted == NULL) {
-        /* NULL EVENT */
-        result = (char *) calloc (1, 11);
-        strcpy(result, "NULL EVENT");
-        return result;
-    }
-    Event * e = (Event *) toBePrinted;
-
-    result = (char *) calloc(1, 19);
-    strcpy(result, "====EVENT====\nUID:");
-    result = (char *) realloc(result, strlen(result) + strlen(e->UID) + 2);
-    strcpy(result, e->UID);
-    strcpy(result, "\n");
-
-    return result;
+    return NULL;
 }
 /* PROPERTIES */
 void deleteProperty(void* toBeDeleted) {
