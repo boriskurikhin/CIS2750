@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
-#define DEBUG 1
+#define DEBUG 0
 
 Calendar * calendar;
 
@@ -13,7 +13,6 @@ char * getToken ( char * entireFile, int * index);
 void trim (char ** );
 int checkFormatting( char ** entireFile, int numLines);
 char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * numElements, int * errors);
-int validateStamp ( char * check );
 
 /* ALL PROPERTIES OF CALENDAR */
 const char calProperties[2][50] = { "CALSCALE", "METHOD" };
@@ -195,11 +194,10 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             }
 
             /* Required property for all events */
-            char * UID = NULL;
-            UID = findProperty(entire_file, beginLine, numLines, "UID:");
+            char * UID = findProperty(entire_file, beginLine, numLines, "UID:");
+            char * output = NULL;
             
             if (UID == NULL || !strlen(UID)) {
-                if (UID) free(UID); /* empty string or something */
                 for (int i = 0; i < numLines; i++) free(entire_file[i]);
                 free(entire_file);
                 #if DEBUG
@@ -208,80 +206,36 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 return OTHER_ERROR;
             }
 
-            char * DTSTAMP = NULL;
-            DTSTAMP = findProperty(entire_file, beginLine, numLines, "DTSTAMP:");
-
-            /* Quick stamp validation & null checking */
-            if (DTSTAMP == NULL || !strlen(DTSTAMP) || !validateStamp(DTSTAMP)) {
-                if (DTSTAMP) free(DTSTAMP);
-                for (int i = 0; i < numLines; i++) free(entire_file[i]);
-                free(entire_file);
-                #if DEBUG
-                    printf("Error! Some event is missing a DTSTAMP or the DTSTAMP format is invalid..\n");
-                #endif
-                return OTHER_ERROR;
-            }
-
             Event * newEvent = NULL;
-
             newEvent = (Event *) calloc ( 1, sizeof(Event) );
-
-            /* Writing the date & time into their respective slots */
-            int di = 0, ti = 0;
-            for (int i = 0; i < strlen(DTSTAMP); i++) {
-                if (DTSTAMP[i] != 'T') {
-                    if (i < 8) newEvent->creationDateTime.date[di++] = DTSTAMP[i];
-                    else newEvent->creationDateTime.time[ti++] = DTSTAMP[i];
-                }
-            }
-            /* Append new lines */
-            strcat(newEvent->creationDateTime.date, "\0");
-            strcat(newEvent->creationDateTime.time, "\0");
-        
             strcpy(newEvent->UID, UID);
-
-            free(UID);
-            free(DTSTAMP);
-
-            /* Once that's done, we can start parsing out other information */
-            int pCount = 0, errors = 0;
-            char ** eventProperties = getAllPropertyNames(entire_file, beginLine, numLines, &pCount, &errors);
-
-            if (errors) {
-                #if DEBUG
-                    printf("Error! While retrieving properties of event\n");
-                #endif
-                for (int x = 0; x < pCount; x++) free(eventProperties[x]);
-                free(eventProperties);
-                for (int x = 0; x < numLines; x++) free(entire_file[x]);
-                free(entire_file);
-                return OTHER_ERROR;
-            }
-
-            for (int x = 0; x < pCount; x++) {
-                /* We already have this one */
-                if (strcasecmp(eventProperties[x], "UID:")) {
-                    /* Now we check some other shit */
-                }
-            }
-
             
-            /* Insert the event at the back of the queue in the calendar object */
-            insertBack((*obj)->events, newEvent);
+            output = printEvent(newEvent);
+            printf("%s\n", output);
+            
+            free(UID);
+            free(newEvent);
+            free(output);
+
 
             /* At this point we know where the event started and ended */
-            // int numP = 0, errors = 0;
-            // char ** ep = getAllPropertyNames(entire_file, beginLine, numLines, &numP, &errors);
+            int numP = 0, errors = 0;
+            char ** ep = getAllPropertyNames(entire_file, beginLine, numLines, &numP, &errors);
             
             /* Error handling */
-            // if (errors) {
-            //     for (int x = 0; x < numP; x++) free(ep[x]);
-            //     free(ep);
-            //     for (int i = 0; i < numLines; i++) free(entire_file[i]);
-            //     free(entire_file);
-            //     return OTHER_ERROR;
-            // }
+            if (errors) {
+                for (int x = 0; x < numP; x++) free(ep[x]);
+                free(ep);
+                for (int i = 0; i < numLines; i++) free(entire_file[i]);
+                free(entire_file);
+                return OTHER_ERROR;
+            }
 
+            #if DEBUG
+                for (int x = 0; x < numP; x++) {
+                    printf("\t%s\n", ep[x]);
+                }
+            #endif
             /* Once we're done */
             beginLine = endLine + 1;
         } else {
@@ -310,8 +264,11 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 /* Deletes the calendar */
 void deleteCalendar(Calendar * obj) {
     if (obj == NULL) return;
+    /* gonna have to delete the lists */
+    // if (obj->events) freeList(obj->events);
+    // if (obj->properties) freeList(obj->properties);
+    /* lastly */
     freeList( obj->properties );
-    freeList( obj->events );
     free ( obj );
 }
 /* Assumes everything ends with \r\n */
@@ -632,8 +589,7 @@ char * printCalendar (const Calendar * obj) {
     result = (char *) realloc (result, strlen(result) + strlen(version) + 1);
     strcat(result, version);
 
-    char * otherProps = NULL;
-    otherProps = toString(obj->properties);
+    char * otherProps = toString(obj->properties);
     result = (char *) realloc (result, strlen(result) + strlen(otherProps) + 2);
     strcat(result, otherProps);
     strcat(result, "\n");
@@ -642,17 +598,6 @@ char * printCalendar (const Calendar * obj) {
 
     /* At this point we have all calendar properties parsed and ready to go */
     /* This is where we going to have to implement events */
-    
-    result = (char *) realloc( result, strlen(result) + 7);
-    strcat(result, "EVENTS");
-
-    char * events = NULL;
-    events = toString(obj->events);
-    result = (char *) realloc ( result, strlen(result) + strlen(events) + 1);
-    strcat(result, events);
-    strcat(result, "\n");
-
-    free(events);
 
     return result;
 }
@@ -738,7 +683,8 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
 /* EVENTS */
 void deleteEvent(void* toBeDeleted) {
     Event * e = (Event *) toBeDeleted;
-    free(e);
+    
+
 }
 int compareEvents(const void* first, const void* second) {
     return 0;
@@ -755,12 +701,6 @@ char* printEvent(void* toBePrinted) {
     strcpy(result, "\tEVENT:");
     result = (char *) realloc( result, strlen(result) + strlen(event->UID) + 1);
     strcat(result, event->UID);
-    result = (char *) realloc (result, strlen(result) + 11);
-    strcat(result, "\n\tDTSTAMP:");
-    result = (char *) realloc (result, strlen(result) + strlen(event->creationDateTime.date) + strlen(event->creationDateTime.time) + 2);
-    strcat(result, event->creationDateTime.date);
-    strcat(result, event->creationDateTime.time);
-    strcat(result, "\n");
     return result;
 }
 /* PROPERTIES */
@@ -787,48 +727,4 @@ char* printProperty(void* toBePrinted) {
     strcat(result, p->propDescr);
     /* Returns result */
     return result;
-}
-/* Not complete yet, but it does check for the correct date format */
-int validateStamp ( char * check ) {
-    int to = 0, len = 0,  mi = 0, di = 0, index = 0;
-    
-    len = strlen(check);
-    for (int x = 0; x < len; x++) {
-        if (check[x] == 'T') {
-            to++;
-        }
-    }
-    /* We need to know where the date ends */
-    if (to != 1) return 0;
-   
-    char month[2];
-    char day[2];
-
-    while (index < 4) {
-        if ( !isdigit(check[index++]) )
-            return 0;
-    }
-   
-    while (index < 4 + 2) {
-        if ( !isdigit(check[index]) )
-            return 0;
-        month[mi++] = check[index++];
-    }
-   
-    while (index < 4 + 2 + 2) {
-        if ( !isdigit(check[index]) )
-            return 0;
-        day[di++] = check[index++];
-    }
-    /* So at this point we have the thing */
-    if (check[index] != 'T') return 0;
-    index++;
-
-    /* NO LEAP YEARS??? */
-    /* Might have to check each month individually */
-    if (month[0] >= '2' || (month[0] == '1' && month[1] >= '3') || (month[0] == '0' && month[1] == '0')) return 0;
-    if ( (day[0] == '0' && day[1] == '0') || (day[0] == '3' && day[1] >= '2') || day[0] >= '4' ) return 0;
-    
-    /* For now */
-    return 1;
 }
