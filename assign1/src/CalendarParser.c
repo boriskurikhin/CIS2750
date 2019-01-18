@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
-#define DEBUG 1
+#define DEBUG 0
 
 Calendar * calendar;
 
@@ -44,11 +44,17 @@ int main(int argv, char ** argc) {
     return 0;
 }
 ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
-    int numLines = 0, correctVersion = 1;
+    int numLines = 0, correctVersion = 1, fnLen = 0;
     /* If the filename is null, or the string is empty */
     if (fileName == NULL || strcasecmp(fileName, "") == 0) return OTHER_ERROR;
     /* If the calendar object doesn't point to anything */
     if (obj == NULL) return OTHER_ERROR;
+
+    /* Check file extension */
+    fnLen = strlen(fileName);
+    if (toupper(fileName[fnLen - 1]) != 'S' || toupper(fileName[fnLen - 2]) != 'C' || toupper(fileName[fnLen - 3]) != 'I' || fileName[fnLen - 4] != '.') {
+        return OTHER_ERROR;
+    }
 
     /* Attempt to open the file */
     FILE * calendarFile = fopen(fileName, "r");
@@ -163,7 +169,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             prop = (Property *) calloc ( 1, sizeof (Property) + sizeof(char) * (1 + strlen(value)));
             int j = 0;
             /* We don't want to include the delimeter */
-            for ( ; j < strlen(calendarProperties[x]); j++)
+            for ( ; j < strlen(calendarProperties[x]) - 1; j++)
                 prop->propName[j] = calendarProperties[x][j];
             prop->propName[j] = '\0';
             strcpy(prop->propDescr, value);
@@ -214,6 +220,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             /* Quick stamp validation & null checking */
             if (DTSTAMP == NULL || !strlen(DTSTAMP) || !validateStamp(DTSTAMP)) {
                 if (DTSTAMP) free(DTSTAMP);
+                free(UID);
                 for (int i = 0; i < numLines; i++) free(entire_file[i]);
                 free(entire_file);
                 #if DEBUG
@@ -223,18 +230,20 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             }
 
             Event * newEvent = NULL;
-
             newEvent = (Event *) calloc ( 1, sizeof(Event) );
 
             /* Writing the date & time into their respective slots */
-            int di = 0, ti = 0;
-            for (int i = 0; i < strlen(DTSTAMP); i++) {
-                if (DTSTAMP[i] != 'T') {
-                    if (i < 8) newEvent->creationDateTime.date[di++] = DTSTAMP[i];
-                    else newEvent->creationDateTime.time[ti++] = DTSTAMP[i];
+            int di = 0, ti = 0, index = 0;
+            bool isUTC = (DTSTAMP[strlen(DTSTAMP) - 1] == 'Z' ? true : false);
+            for ( ; index < (isUTC ? strlen(DTSTAMP) - 1 : strlen(DTSTAMP)); index++) {
+                if (DTSTAMP[index] != 'T') {
+                    if (index < 8) newEvent->creationDateTime.date[di++] = DTSTAMP[index];
+                    else newEvent->creationDateTime.time[ti++] = DTSTAMP[index];
                 }
             }
-            /* Append new lines */
+            /* UTC or NOT */
+            newEvent->creationDateTime.UTC = isUTC;
+            /* Append null terminators */
             strcat(newEvent->creationDateTime.date, "\0");
             strcat(newEvent->creationDateTime.time, "\0");
         
@@ -247,40 +256,58 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             int pCount = 0, errors = 0;
             char ** eventProperties = getAllPropertyNames(entire_file, beginLine, numLines, &pCount, &errors);
 
-            if (errors) {
+            if (errors || !pCount) {
                 #if DEBUG
                     printf("Error! While retrieving properties of event\n");
                 #endif
                 for (int x = 0; x < pCount; x++) free(eventProperties[x]);
-                free(eventProperties);
+                if (eventProperties) free(eventProperties);
                 for (int x = 0; x < numLines; x++) free(entire_file[x]);
                 free(entire_file);
                 return OTHER_ERROR;
             }
 
+            newEvent->properties = initializeList(printProperty, deleteProperty, compareProperties);
+
             for (int x = 0; x < pCount; x++) {
                 /* We already have this one */
-                if (strcasecmp(eventProperties[x], "UID:")) {
+                if (strcasecmp(eventProperties[x], "UID:") && strcasecmp(eventProperties[x], "DTSTAMP:")) {
                     /* Now we check some other shit */
-                }
-            }
+                    /* Have to create another event property */
+                    if (!strcasecmp(eventProperties[x], "DTSTART:")) {
 
-            
+                    } else {
+                        char * value = findProperty(entire_file, beginLine, numLines, eventProperties[x]);
+                        
+                        if (!value || !strlen(value)) {
+                            #if DEBUG
+                                printf("Error! While retrieving value of event property\n");
+                            #endif
+                            if (value) free(value);
+                            for (int j = 0; j < pCount; j++) free(eventProperties[j]);
+                            free(eventProperties);
+                            for (int j = 0; j < numLines; j++) free(entire_file[j]);
+                            free(entire_file);
+                            return OTHER_ERROR;
+                        }
+                        
+                        Property * prop = (Property *) calloc (1, sizeof(Property) + strlen(value) + 1);
+                        int j = 0;
+                        for (; j < strlen(eventProperties[x]) - 1; j++)
+                            prop->propName[j] = eventProperties[x][j];
+                        prop->propName[j] = '\0';
+                        strcpy(prop->propDescr, value);
+                        free(value);
+                        insertBack(newEvent->properties, prop);
+                    }
+                }
+                /* Free it after using it */
+                free(eventProperties[x]);
+            }
+            free(eventProperties);
+
             /* Insert the event at the back of the queue in the calendar object */
             insertBack((*obj)->events, newEvent);
-
-            /* At this point we know where the event started and ended */
-            // int numP = 0, errors = 0;
-            // char ** ep = getAllPropertyNames(entire_file, beginLine, numLines, &numP, &errors);
-            
-            /* Error handling */
-            // if (errors) {
-            //     for (int x = 0; x < numP; x++) free(ep[x]);
-            //     free(ep);
-            //     for (int i = 0; i < numLines; i++) free(entire_file[i]);
-            //     free(entire_file);
-            //     return OTHER_ERROR;
-            // }
 
             /* Once we're done */
             beginLine = endLine + 1;
@@ -288,19 +315,6 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             beginLine++;
         }
     }
-
-    //(*obj)->events = initializeList(printEvent, deleteEvent, compareEvents);
-
-    // for (int k = 0; k < numLines; k++) {
-    //     int numE = 0, errors = 0;
-    //     char ** test = getAllPropertyNames(entire_file, k, numLines, &numE, &errors);
-    //     if (test == NULL) continue;
-    //     for (int j = 0; j < numE; j++) {
-    //         char * t = findProperty(entire_file, k, numLines, test[j]);
-    //         printf("%s%s\n", test[j], t);
-    //     }
-    //     printf("========================\n");
-    // }
 
     for (int i = 0; i < numLines; i++) free(entire_file[i]);
     free(entire_file);
@@ -619,22 +633,26 @@ char * printCalendar (const Calendar * obj) {
     char * result = NULL;
 
     if (obj == NULL) return NULL;
-    result = (char *) calloc ( 1, 10 );
+    int length = 10;
+
+    result = (char *) calloc ( 1, length );
     strcpy(result, "CALENDAR\n");
-    result = (char *) realloc (result, strlen(result) + 8 + strlen(obj->prodID) + 1);
+    length += (8 + strlen(obj->prodID) + 1);
+    result = (char *) realloc (result, length);
     strcat(result, "PRODID:");
     strcat(result, obj->prodID);
     strcat(result, "\n");
 
     char version[200 + 10];
     sprintf(version, "VERSION:%f", obj->version);
-
-    result = (char *) realloc (result, strlen(result) + strlen(version) + 1);
+    length += strlen(version) + 1;
+    result = (char *) realloc (result, length);
     strcat(result, version);
 
     char * otherProps = NULL;
     otherProps = toString(obj->properties);
-    result = (char *) realloc (result, strlen(result) + strlen(otherProps) + 2);
+    length += strlen(otherProps) + 2;
+    result = (char *) realloc (result, length);
     strcat(result, otherProps);
     strcat(result, "\n");
 
@@ -643,12 +661,14 @@ char * printCalendar (const Calendar * obj) {
     /* At this point we have all calendar properties parsed and ready to go */
     /* This is where we going to have to implement events */
     
-    result = (char *) realloc( result, strlen(result) + 7);
+    length += 7;
+    result = (char *) realloc( result, length);
     strcat(result, "EVENTS");
 
     char * events = NULL;
     events = toString(obj->events);
-    result = (char *) realloc ( result, strlen(result) + strlen(events) + 1);
+    length += strlen(events) + 1;
+    result = (char *) realloc ( result, length);
     strcat(result, events);
     strcat(result, "\n");
 
@@ -686,7 +706,7 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
             if (opened - 1 == closed) {
                 int colonIndex = 0, foundColon = 0;
                 /* Find colon index */
-                for (int i = 0; i < strlen(ln); i++) {
+                for (int i = 0; i < strlen(ln);  i++) {
                     colonIndex++;
                     if (ln[i] == ':' || ln[i] == ';') {
                         foundColon = 1;
@@ -707,12 +727,12 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
                 }
 
                 char * line = NULL;
-                line = (char *) calloc (1, colonIndex );
+                line = (char *) calloc (1, colonIndex + 1);
 
                 for (int i = 0; i < colonIndex; i++) {
                     line[i] = ln[i];
                 }
-                line[colonIndex] = '\0';
+                strcat(line, "\0");
 
                 /* After we found the event name */
                 if (result == NULL) {
@@ -721,11 +741,16 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
                     result = realloc ( result, sizeof (char *) * ( *numElements + 1) ) ;
                 }
                 /* Copy it into the resulting array */
-                result[*numElements] = calloc(1, strlen(line) + 1 );
+                int strLen = strlen(line) + 1;
+                result[*numElements] = NULL;
+                result[*numElements] = calloc(1, strLen );
                 strcpy(result[*numElements], line);
                 /* Free & append the null terminator */
                 free(line);
+                strcat(result[*numElements], "\0");
+                /*
                 result[*numElements][strlen(result[*numElements])] = '\0';
+                */
                 /* Increase the size of array */
                 *numElements += 1;
             }
@@ -738,6 +763,7 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
 /* EVENTS */
 void deleteEvent(void* toBeDeleted) {
     Event * e = (Event *) toBeDeleted;
+    freeList(e->properties);
     free(e);
 }
 int compareEvents(const void* first, const void* second) {
@@ -755,11 +781,21 @@ char* printEvent(void* toBePrinted) {
     strcpy(result, "\tEVENT:");
     result = (char *) realloc( result, strlen(result) + strlen(event->UID) + 1);
     strcat(result, event->UID);
-    result = (char *) realloc (result, strlen(result) + 11);
-    strcat(result, "\n\tDTSTAMP:");
-    result = (char *) realloc (result, strlen(result) + strlen(event->creationDateTime.date) + strlen(event->creationDateTime.time) + 2);
+    result = (char *) realloc (result, strlen(result) + 12);
+    strcat(result, "\n\tDTSTAMP->");
+    result = (char *) realloc (result, strlen(result) + strlen(event->creationDateTime.date) + strlen(event->creationDateTime.time) + 1);
     strcat(result, event->creationDateTime.date);
     strcat(result, event->creationDateTime.time);
+    if (event->creationDateTime.UTC) {
+        result = (char *) realloc (result, strlen(result) + 6);
+        strcat(result, "(UTC)");
+    }
+    char * otherProps = NULL;
+    otherProps = toString(event->properties);
+    result = (char *) realloc (result, strlen(result) + strlen(otherProps) + 2);
+    strcat(result, otherProps);
+    free(otherProps);
+
     strcat(result, "\n");
     return result;
 }
@@ -778,12 +814,14 @@ char* printProperty(void* toBePrinted) {
     Property * p = (Property *) toBePrinted;
     /* Allocates enough space for the property name and null-terminator */
     char * result = NULL;
-    result = (char *) calloc ( 1, strlen(p->propName) + 1 );
+    result = (char *) calloc ( 1, strlen(p->propName) + 2 );
     /* Copies the property name into the resulting string */
-    strcpy(result, p->propName);
+    strcpy(result, "\t");
+    strcat(result, p->propName);
     /* Allocates some more memory for the property description */
-    result = (char *) realloc (  result, strlen(result) + strlen(p->propDescr) + 1);
+    result = (char *) realloc (  result, strlen(result) + strlen(p->propDescr) + 3);
     /* Appends the description onto the result */
+    strcat(result, "->");
     strcat(result, p->propDescr);
     /* Returns result */
     return result;
@@ -828,7 +866,19 @@ int validateStamp ( char * check ) {
     /* Might have to check each month individually */
     if (month[0] >= '2' || (month[0] == '1' && month[1] >= '3') || (month[0] == '0' && month[1] == '0')) return 0;
     if ( (day[0] == '0' && day[1] == '0') || (day[0] == '3' && day[1] >= '2') || day[0] >= '4' ) return 0;
+
+    if ( index + 6 > strlen(check) ) return 0;
     
+    char hour[2] = { check[index], check[index + 1] };
+    char minute[2] = { check[index + 2], check[index + 3] };
+    char second[2] = { check[index + 4], check[index + 5] };
+    /* UTC token and size of check */
+    if ( index + 6 < strlen(check) ) 
+        if (check[index + 6] != 'Z' || (index + 7) < strlen(check)) return 0;
+
+    if ( (hour[0] == '2' && hour[1] >= '4') || (hour[0] >= '3') ) return 0;
+    if ( minute[0] >= '6' ) return 0;
+    if ( second[0] >= '6' ) return 0;
     /* For now */
     return 1;
 }
