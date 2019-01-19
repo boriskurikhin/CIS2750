@@ -617,7 +617,7 @@ int checkFormatting (char ** entire_file, int numLines) {
 
             isAlarmOpen = 0;
             numAlarmsClosed++;
-        } else if (entire_file[i][0] != ' ' && entire_file[i][0] != '\t') {
+        } else if (entire_file[i][0] != ' ' && entire_file[i][0] != '\t' && entire_file[i][0] != ';') {
             int lineLength = strlen(entire_file[i]);
             int colons = 0;
             for (int j = 1; j < lineLength; j++)
@@ -701,7 +701,7 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
                 break;
             }
         /* FOLDED */
-        } else if (ln[0] == ' ' || ln[0] == '\t') {
+        } else if (ln[0] == ' ' || ln[0] == '\t' || ln[0] == ';') {
         } else {
             if (opened - 1 == closed) {
                 int colonIndex = 0, foundColon = 0;
