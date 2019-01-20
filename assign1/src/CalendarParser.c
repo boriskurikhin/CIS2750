@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
-#define DEBUG 0
+#define DEBUG 1
 
 Calendar * calendar;
 
@@ -275,10 +275,37 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                     /* Now we check some other shit */
                     /* Have to create another event property */
                     if (!strcasecmp(eventProperties[x], "DTSTART:")) {
+                        /* Validating and assigning the date start property */
+                        char * value = findProperty(entire_file, beginLine, numLines, "DTSTART:");
+                        if (!value || !strlen(value) || !validateStamp(value)) {
+                            printf("Fails\n");
+                            #if DEBUG
+                                printf("Error! While retrieving value of event property\n");
+                            #endif
+                            if (value) free(value);
+                            for (int j = 0; j < pCount; j++) free(eventProperties[j]);
+                            free(eventProperties);
+                            for (int j = 0; j < numLines; j++) free(entire_file[j]);
+                            free(entire_file);
+                            return OTHER_ERROR;
+                        }
+                        bool utc = (value[strlen(value) - 1] == 'Z' ? 1 : 0);
+                        int ii = 0, jj = 0;
+                        for (int xx = 0; xx < (utc ? strlen(value) - 1 : strlen(value)); xx++) {
+                            if (value[xx] != 'T') {
+                                if (xx < 8) newEvent->startDateTime.date[ii++] = value[xx];
+                                else newEvent->startDateTime.time[jj++] = value[xx];
+                            }
+                        }
+                        strcat(newEvent->startDateTime.date, "\0");
+                        strcat(newEvent->startDateTime.time, "\0");
+                        newEvent->startDateTime.UTC = utc;
 
+                        free(value);
                     } else {
                         char * value = findProperty(entire_file, beginLine, numLines, eventProperties[x]);
                         
+                        /* Basically, incorrect value */
                         if (!value || !strlen(value)) {
                             #if DEBUG
                                 printf("Error! While retrieving value of event property\n");
@@ -290,7 +317,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                             free(entire_file);
                             return OTHER_ERROR;
                         }
-                        
+
                         Property * prop = (Property *) calloc (1, sizeof(Property) + strlen(value) + 1);
                         int j = 0;
                         for (; j < strlen(eventProperties[x]) - 1; j++)
@@ -789,6 +816,16 @@ char* printEvent(void* toBePrinted) {
     if (event->creationDateTime.UTC) {
         result = (char *) realloc (result, strlen(result) + 6);
         strcat(result, "(UTC)");
+    }
+    if (strlen(event->startDateTime.date) && strlen(event->startDateTime.time)) {
+        result = (char *) realloc(result, strlen(result) + strlen(event->startDateTime.date) + strlen(event->startDateTime.time) + 11);
+        strcat(result, "\n\tDTSTART->");
+        strcat(result, event->startDateTime.date);
+        strcat(result, event->startDateTime.time);
+        if (event->startDateTime.UTC) {
+            result = (char *) realloc (result, strlen(result) + 6);
+            strcat(result, "(UTC)");
+        }
     }
     char * otherProps = NULL;
     otherProps = toString(event->properties);
