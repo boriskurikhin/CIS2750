@@ -567,6 +567,7 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
                         if (result) free(result);
                         for (int j = 0; j < size; j++) free(results[j]);
                         if (results) free(results);
+                        *count = 0;
                         return NULL;
                     }
                 } else {
@@ -595,6 +596,7 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
                                 if (result) free(result);
                                 for (int j = 0; j < size; j++) free(results[j]);
                                 if (results) free(results);
+                                *count = 0;
                                 return NULL;
                             }
                             foundCount++;
@@ -621,10 +623,12 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
                                 if (result) free(result);
                                 for (int j = 0; j < size; j++) free(results[j]);
                                 if (results) free(results);
+                                *count = 0;
                                 return NULL;
                             }
                         } else {
                             if (result) free(result);
+                            *count = size;
                             return results;
                         }
                     }
@@ -651,6 +655,7 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
                                         if (result) free(result);
                                         for (int j = 0; j < size; j++) free(results[j]);
                                         if (results) free(results);
+                                        *count = 0;
                                         return NULL;
                                     }
                                     /* Dynamic allocation */
@@ -671,14 +676,18 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
                                 if (once) {
                                     if (foundCount == 1) {
                                         if (result) free(result);
+                                        *count = size;
                                         return results;
                                     } else {
                                         if (result) free(result);
                                         for (int j = 0; j < size; j++) free(results[j]);
                                         if (results) free(results);
+                                        *count = 0;
+                                        return NULL;
                                     }
                                 } else {
                                     if (result) free(result);
+                                    *count = size;
                                     return results;
                                 }
                             }
@@ -693,6 +702,7 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
     if (result) free(result);
     for (int j = 0; j < size; j++) free(results[j]);
     if (results) free(results);
+    *count = 0;
     return NULL;
 }
 /* Verifies that all alarms & events are distributed correctly */
