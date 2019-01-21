@@ -8,7 +8,7 @@
 Calendar * calendar;
 
 char ** readFile (char * , int *);
-char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyName );
+char ** findProperty(char ** file, int beginIndex, int endIndex, char * propertyName, bool once, int * count );
 char * getToken ( char * entireFile, int * index);
 void trim (char ** );
 int checkFormatting( char ** entireFile, int numLines);
@@ -91,39 +91,43 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
     *obj = (Calendar *) calloc ( 1, sizeof ( Calendar ) );
     /* Raw values */
-    char * version = findProperty(entire_file, 0, numLines, "VERSION:");
-    char * prodId = findProperty(entire_file, 0, numLines, "PRODID:");
+    int vcount = 0, pcount = 0;
+    char ** version = findProperty(entire_file, 0, numLines, "VERSION:", true, &vcount);
+    char ** prodId = findProperty(entire_file, 0, numLines, "PRODID:", true, &pcount);
 
     /* Trim any whitespace */
     /* Check to make sure that version is a number */
-    if (version == NULL || strlen(version) == 0) {
+    if (version == NULL || strlen(version[0]) == 0) {
         #if DEBUG
             printf("Error: Version is NULL\n");
         #endif
         /* Free memory */
-        if (prodId) free(prodId);
+        if (prodId) {
+            free (prodId[0]);
+            free( prodId );
+        }
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
 
         return OTHER_ERROR;
     }
     /* Trim whitespace */
-    trim(&version);
+    trim(&version[0]);
     /* Questionable */
-    if (prodId == NULL || version == NULL || strlen(version) == 0 || strlen(prodId) == 0) {
+    if (prodId == NULL || version == NULL || strlen(version[0]) == 0 || strlen(prodId[0]) == 0) {
         #if DEBUG
             printf("Error: Either version is empty after trimming, or prodId is empty.\n");
         #endif
-        if (prodId) free(prodId);
-        if (version) free(version);
+        if (prodId) { free(prodId[0]); free(prodId); }
+        if (version) { free(version[0]); free(version); } 
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
 
         return OTHER_ERROR;
     }
     /* It's not a number, cannot be represented by a float */
-    for (int i = 0; i < strlen(version); i++) {
-        if ( (version[i] >= '0' && version[i] <= '9') || version[i] == '.'  || version[i] == '\r' || version[i] == '\n') continue;
+    for (int i = 0; i < strlen(version[0]); i++) {
+        if ( (version[0][i] >= '0' && version[0][i] <= '9') || version[0][i] == '.'  || version[0][i] == '\r' || version[0][i] == '\n') continue;
         correctVersion = 0;
     }
     /* Basically, the version is not a number */
@@ -131,19 +135,19 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         #if DEBUG
             printf("Error: Version is not a floating point\n");
         #endif
-        free(prodId);
-        free(version);
+        if (prodId) { free(prodId[0]); free(prodId); }
+        if (version) { free(version[0]); free(version); } 
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
         return OTHER_ERROR;
     }
     /* Write the version & production id */
-    (*obj)->version = (float) atof(version);;
-    strcpy((*obj)->prodID, prodId);
+    (*obj)->version = (float) atof(version[0]);
+    strcpy((*obj)->prodID, prodId[0]);
 
     /* Free */
-    if (version) free (version);
-    if (prodId) free (prodId);
+    if (prodId) { free(prodId[0]); free(prodId); }
+    if (version) { free(version[0]); free(version); } 
 
     /* After we're done extracting the version and prodId, we can begin extracting all other calendar properties */
     int N = 0, errors = 0;
@@ -164,17 +168,23 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     for (int x = 0; x < N; x++) {
         /* We already checked those guys */
         if (strcasecmp(calendarProperties[x], "PRODID:") && strcasecmp(calendarProperties[x], "VERSION:")) {
-            char * value = findProperty(entire_file, 0, numLines, calendarProperties[x]);
-            Property * prop = NULL;
-            prop = (Property *) calloc ( 1, sizeof (Property) + sizeof(char) * (1 + strlen(value)));
-            int j = 0;
-            /* We don't want to include the delimeter */
-            for ( ; j < strlen(calendarProperties[x]) - 1; j++)
-                prop->propName[j] = calendarProperties[x][j];
-            prop->propName[j] = '\0';
-            strcpy(prop->propDescr, value);
-            insertBack((*obj)->properties, prop);
-
+            int count = 0;
+            /* All of these properties can have more than one value */
+            char ** value = findProperty(entire_file, 0, numLines, calendarProperties[x], false, &count);
+            for (int c = 0; c < count; c++) {
+                Property * prop = NULL;
+                prop = (Property *) calloc ( 1, sizeof (Property) + sizeof(char) * (1 + strlen(value[c])));
+                int j = 0;
+                /* We don't want to include the delimeter */
+                for ( ; j < strlen(calendarProperties[x]) - 1; j++)
+                    prop->propName[j] = calendarProperties[x][j];
+                prop->propName[j] = '\0';
+                strcpy(prop->propDescr, value[c]);
+                insertBack((*obj)->properties, prop);
+            }
+            /* Free entire array */
+            for (int c = 0; c < count; c++)
+                free(value[c]);
             free(value);
         }
         /* Free the element */
@@ -201,11 +211,12 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             }
 
             /* Required property for all events */
-            char * UID = NULL;
-            UID = findProperty(entire_file, beginLine, numLines, "UID:");
+            char ** UID = NULL;
+            int uidc = 0;
+            UID = findProperty(entire_file, beginLine, numLines, "UID:", true, &uidc);
             
-            if (UID == NULL || !strlen(UID)) {
-                if (UID) free(UID); /* empty string or something */
+            if (UID == NULL || !strlen(UID[0])) {
+                if (UID) { free(UID[0]); free(UID); } /* empty string or something */
                 for (int i = 0; i < numLines; i++) free(entire_file[i]);
                 free(entire_file);
                 #if DEBUG
@@ -214,13 +225,14 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 return OTHER_ERROR;
             }
 
-            char * DTSTAMP = NULL;
-            DTSTAMP = findProperty(entire_file, beginLine, numLines, "DTSTAMP:");
+            char ** DTSTAMP = NULL;
+            int dtc = 0;
+            DTSTAMP = findProperty(entire_file, beginLine, numLines, "DTSTAMP:", true, &dtc);
 
             /* Quick stamp validation & null checking */
-            if (DTSTAMP == NULL || !strlen(DTSTAMP) || !validateStamp(DTSTAMP)) {
-                if (DTSTAMP) free(DTSTAMP);
-                free(UID);
+            if (DTSTAMP == NULL || !strlen(DTSTAMP[0]) || !validateStamp(DTSTAMP[0])) {
+                if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); };
+                if (UID) { free(UID[0]); free(UID); }
                 for (int i = 0; i < numLines; i++) free(entire_file[i]);
                 free(entire_file);
                 #if DEBUG
@@ -234,11 +246,11 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
             /* Writing the date & time into their respective slots */
             int di = 0, ti = 0, index = 0;
-            bool isUTC = (DTSTAMP[strlen(DTSTAMP) - 1] == 'Z' ? true : false);
-            for ( ; index < (isUTC ? strlen(DTSTAMP) - 1 : strlen(DTSTAMP)); index++) {
-                if (DTSTAMP[index] != 'T') {
-                    if (index < 8) newEvent->creationDateTime.date[di++] = DTSTAMP[index];
-                    else newEvent->creationDateTime.time[ti++] = DTSTAMP[index];
+            bool isUTC = (DTSTAMP[0][strlen(DTSTAMP[0]) - 1] == 'Z' ? true : false);
+            for ( ; index < (isUTC ? strlen(DTSTAMP[0]) - 1 : strlen(DTSTAMP[0])); index++) {
+                if (DTSTAMP[0][index] != 'T') {
+                    if (index < 8) newEvent->creationDateTime.date[di++] = DTSTAMP[0][index];
+                    else newEvent->creationDateTime.time[ti++] = DTSTAMP[0][index];
                 }
             }
             /* UTC or NOT */
@@ -247,10 +259,10 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             strcat(newEvent->creationDateTime.date, "\0");
             strcat(newEvent->creationDateTime.time, "\0");
         
-            strcpy(newEvent->UID, UID);
+            strcpy(newEvent->UID, UID[0]);
 
-            free(UID);
-            free(DTSTAMP);
+            if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); };
+            if (UID) { free(UID[0]); free(UID); }
 
             /* Once that's done, we can start parsing out other information */
             int pCount = 0, errors = 0;
@@ -271,46 +283,19 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
             for (int x = 0; x < pCount; x++) {
                 /* We already have this one */
-                if (strcasecmp(eventProperties[x], "UID:") && strcasecmp(eventProperties[x], "DTSTAMP:")) {
-                    /* Now we check some other shit */
-                    /* Have to create another event property */
-                    if (!strcasecmp(eventProperties[x], "DTSTART:")) {
-                        /* Validating and assigning the date start property */
-                        char * value = findProperty(entire_file, beginLine, numLines, "DTSTART:");
-                        if (!value || !strlen(value) || !validateStamp(value)) {
-                            printf("Fails\n");
-                            #if DEBUG
-                                printf("Error! While retrieving value of event property\n");
-                            #endif
-                            if (value) free(value);
-                            for (int j = 0; j < pCount; j++) free(eventProperties[j]);
-                            free(eventProperties);
-                            for (int j = 0; j < numLines; j++) free(entire_file[j]);
-                            free(entire_file);
-                            return OTHER_ERROR;
-                        }
-                        bool utc = (value[strlen(value) - 1] == 'Z' ? 1 : 0);
-                        int ii = 0, jj = 0;
-                        for (int xx = 0; xx < (utc ? strlen(value) - 1 : strlen(value)); xx++) {
-                            if (value[xx] != 'T') {
-                                if (xx < 8) newEvent->startDateTime.date[ii++] = value[xx];
-                                else newEvent->startDateTime.time[jj++] = value[xx];
-                            }
-                        }
-                        strcat(newEvent->startDateTime.date, "\0");
-                        strcat(newEvent->startDateTime.time, "\0");
-                        newEvent->startDateTime.UTC = utc;
-
-                        free(value);
-                    } else {
-                        char * value = findProperty(entire_file, beginLine, numLines, eventProperties[x]);
-                        
+                if (strcasecmp(eventProperties[x], "UID:") && strcasecmp(eventProperties[x], "DTSTAMP:") && strcasecmp(eventProperties[x], "DTSTART:")) {
+                    
+                    int valueCount = 0;
+                    char ** value = findProperty(entire_file, beginLine, numLines, eventProperties[x], false, &valueCount);
+                    
+                    for (int vc = 0; vc < valueCount; vc++) {
                         /* Basically, incorrect value */
-                        if (!value || !strlen(value)) {
+                        if (!value || !strlen(value[vc])) {
                             #if DEBUG
                                 printf("Error! While retrieving value of event property\n");
                             #endif
-                            if (value) free(value);
+                            for (int j = 0; j < valueCount; j++) free(value[j]);
+                            free(value);
                             for (int j = 0; j < pCount; j++) free(eventProperties[j]);
                             free(eventProperties);
                             for (int j = 0; j < numLines; j++) free(entire_file[j]);
@@ -318,15 +303,17 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                             return OTHER_ERROR;
                         }
 
-                        Property * prop = (Property *) calloc (1, sizeof(Property) + strlen(value) + 1);
+                        Property * prop = (Property *) calloc (1, sizeof(Property) + strlen(value[vc]) + 1);
                         int j = 0;
                         for (; j < strlen(eventProperties[x]) - 1; j++)
                             prop->propName[j] = eventProperties[x][j];
                         prop->propName[j] = '\0';
-                        strcpy(prop->propDescr, value);
-                        free(value);
+                        strcpy(prop->propDescr, value[vc]);
                         insertBack(newEvent->properties, prop);
                     }
+                    /* Free */
+                    for (int vc = 0; vc < valueCount; vc++) free(value[vc]);
+                    if (value) free(value); 
                 }
                 /* Free it after using it */
                 free(eventProperties[x]);
@@ -536,9 +523,15 @@ char ** readFile ( char * fileName, int * numLines ) {
 }
 /* Extracts property */
 /* [Begin Index, End Index) */
-char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyName ) {
+char ** findProperty(char ** file, int beginIndex, int endIndex, char * propertyName, bool once, int * count) {
     int li = beginIndex, opened = 0, closed = 0, currentlyFolding = 0, index = 0;
     char * result = NULL;
+
+    /* Basically, returns an array of results */
+    char ** results = NULL;
+    int size = 0;
+
+    int foundCount = 0;
     /* Doesn't start properly */
     if ( strcasecmp(file[li], "BEGIN:VCALENDAR\r\n") && strcasecmp(file[li], "BEGIN:VALARM\r\n") && strcasecmp(file[li], "BEGIN:VEVENT\r\n") )
         return NULL;
@@ -548,9 +541,23 @@ char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyN
         } else if ( !strcasecmp(file[li], "END:VCALENDAR\r\n") || !strcasecmp(file[li], "END:VALARM\r\n") || !strcasecmp(file[li], "END:VEVENT\r\n") ) {
             closed++;
             if (closed == opened) {
-                /* Basically exit the program */
-                if (result) free (result);
-                return NULL;
+                /* If we have reached the end of the current level */
+                if (once) {
+                    if (foundCount == 1) {
+                        /* Whatever the first result was */
+                        if (result) free(result);
+                        return results;
+                    } else {
+                        if (result) free(result);
+                        for (int j = 0; j < size; j++) free(results[j]);
+                        if (results) free(results);
+                        return NULL;
+                    }
+                } else {
+                    if (result) free(result);
+                    *count = size;
+                    return results;
+                }
             }
         } else {
             /* If we're on the current layer */
@@ -567,10 +574,35 @@ char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyN
                         if (file[li + 1][0] == ' ' || file[li + 1][0] == '\t') {
                             currentlyFolding = 1;
                         } else {
-                            return result;
+                            foundCount++;
+                            /* Dynamic allocation */
+                            if (results == NULL) {
+                                results = calloc ( 1, sizeof (char *) );
+                            } else {
+                                results = realloc ( results, (size + 1) * sizeof(char *) );
+                            }
+                            results[size] = (char *) calloc(1, strlen(result) + 1);
+                            /* Essentially copy whatever into the 2d array, and re-set the string */
+                            strcpy(results[size], result);
+                            strcpy(result, "");
+                            index = 0;
+                            size++;
                         }
                     } else {
-                        return result;
+                        if (once) {
+                            if (foundCount == 1) {
+                                if (result) free(result);
+                                return results;
+                            } else {
+                                if (result) free(result);
+                                for (int j = 0; j < size; j++) free(results[j]);
+                                if (results) free(results);
+                                return NULL;
+                            }
+                        } else {
+                            if (result) free(result);
+                            return results;
+                        }
                     }
                 } else {
                     if (strlen(propertyName) <= strlen(file[li]) - 2) {
@@ -589,10 +621,34 @@ char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyN
                                 if (file[li + 1][0] == ' ' || file[li + 1][0] == '\t') {
                                     currentlyFolding = 1;
                                 } else {
-                                    return result;
+                                    foundCount++;
+                                    /* Dynamic allocation */
+                                    if (results == NULL) {
+                                        results = calloc ( 1, sizeof (char *) );
+                                    } else {
+                                        results = realloc ( results, (size + 1) * sizeof(char *) );
+                                    }
+                                    results[size] = (char *) calloc(1, strlen(result) + 1);
+                                    /* Essentially copy whatever into the 2d array, and re-set the string */
+                                    strcpy(results[size], result);
+                                    strcpy(result, "");
+                                    index = 0;
+                                    size++;
                                 }
                             } else {
-                                return result;
+                                if (once) {
+                                    if (foundCount == 1) {
+                                        if (result) free(result);
+                                        return results;
+                                    } else {
+                                        if (result) free(result);
+                                        for (int j = 0; j < size; j++) free(results[j]);
+                                        if (results) free(results);
+                                    }
+                                } else {
+                                    if (result) free(result);
+                                    return results;
+                                }
                             }
                         }
                     }
@@ -601,7 +657,8 @@ char * findProperty(char ** file, int beginIndex, int endIndex, char * propertyN
         }
         li++;
     }
-    return NULL;
+    if (result) free(result);
+    return results;
 }
 /* Verifies that all alarms & events are distributed correctly */
 int checkFormatting (char ** entire_file, int numLines) {

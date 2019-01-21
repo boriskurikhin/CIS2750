@@ -4,8 +4,11 @@ PRODID:-//hacksw/handcal//NONSGML v1.0//EN
 ;Hi!
 ;I am a comment
 BEGIN:VEVENT
-UID:uid1@example.com
-;I too am a comment
+UID:another one
+TEST: abc
+ def
+TEST: hello
+  world
 DTSTAMP:19970714T1700
  0
  0Z
