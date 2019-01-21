@@ -171,6 +171,14 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             int count = 0;
             /* All of these properties can have more than one value */
             char ** value = findProperty(entire_file, 0, numLines, calendarProperties[x], false, &count);
+            /* Then there is an error */
+            if (value == NULL) {
+                for (int x = 0; x < N; x++) free(calendarProperties[x]);
+                free(calendarProperties);
+                for (int i = 0; i < numLines; i++) free(entire_file[i]);
+                free(entire_file);
+                return OTHER_ERROR;
+            }
             for (int c = 0; c < count; c++) {
                 Property * prop = NULL;
                 prop = (Property *) calloc ( 1, sizeof (Property) + sizeof(char) * (1 + strlen(value[c])));
@@ -288,6 +296,14 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                     int valueCount = 0;
                     char ** value = findProperty(entire_file, beginLine, numLines, eventProperties[x], false, &valueCount);
                     
+                    if (value == NULL) {
+                        for (int x = 0; x < pCount; x++) free(eventProperties[x]);
+                        free(eventProperties);
+                        for (int i = 0; i < numLines; i++) free(entire_file[i]);
+                        free(entire_file);
+                        return OTHER_ERROR;
+                    }
+
                     for (int vc = 0; vc < valueCount; vc++) {
                         /* Basically, incorrect value */
                         if (!value || !strlen(value[vc])) {
@@ -521,7 +537,7 @@ char ** readFile ( char * fileName, int * numLines ) {
     /* END */
     return returnFile;
 }
-/* Extracts property */
+/* Extracts and returns an array of properties */
 /* [Begin Index, End Index) */
 char ** findProperty(char ** file, int beginIndex, int endIndex, char * propertyName, bool once, int * count) {
     int li = beginIndex, opened = 0, closed = 0, currentlyFolding = 0, index = 0;
@@ -574,6 +590,13 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
                         if (file[li + 1][0] == ' ' || file[li + 1][0] == '\t') {
                             currentlyFolding = 1;
                         } else {
+                            /* If it's empty or something */
+                            if (result == NULL || strlen(result) == 0) {
+                                if (result) free(result);
+                                for (int j = 0; j < size; j++) free(results[j]);
+                                if (results) free(results);
+                                return NULL;
+                            }
                             foundCount++;
                             /* Dynamic allocation */
                             if (results == NULL) {
@@ -586,6 +609,7 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
                             strcpy(results[size], result);
                             strcpy(result, "");
                             index = 0;
+                            currentlyFolding = 0;
                             size++;
                         }
                     } else {
@@ -622,6 +646,13 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
                                     currentlyFolding = 1;
                                 } else {
                                     foundCount++;
+                                    /* If it's empty or something */
+                                    if (result == NULL || strlen(result) == 0) {
+                                        if (result) free(result);
+                                        for (int j = 0; j < size; j++) free(results[j]);
+                                        if (results) free(results);
+                                        return NULL;
+                                    }
                                     /* Dynamic allocation */
                                     if (results == NULL) {
                                         results = calloc ( 1, sizeof (char *) );
@@ -633,6 +664,7 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
                                     strcpy(results[size], result);
                                     strcpy(result, "");
                                     index = 0;
+                                    currentlyFolding = 0;
                                     size++;
                                 }
                             } else {
@@ -657,8 +689,11 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
         }
         li++;
     }
+    /* NOT too sure what to do here so we just did the basic clean up */
     if (result) free(result);
-    return results;
+    for (int j = 0; j < size; j++) free(results[j]);
+    if (results) free(results);
+    return NULL;
 }
 /* Verifies that all alarms & events are distributed correctly */
 int checkFormatting (char ** entire_file, int numLines) {
@@ -817,26 +852,39 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
                     line[i] = ln[i];
                 }
                 strcat(line, "\0");
+                
+                int repeat = 0;
 
-                /* After we found the event name */
-                if (result == NULL) {
-                    result = calloc (1, sizeof (char *) );
-                } else {
-                    result = realloc ( result, sizeof (char *) * ( *numElements + 1) ) ;
+                /* Make sure there's no duplicates */
+                for (int check = 0; check < *numElements; check++) {
+                    if (!strcasecmp(line, result[check])) {
+                        repeat = 1;
+                        free(line);
+                        break;
+                    }
                 }
-                /* Copy it into the resulting array */
-                int strLen = strlen(line) + 1;
-                result[*numElements] = NULL;
-                result[*numElements] = calloc(1, strLen );
-                strcpy(result[*numElements], line);
-                /* Free & append the null terminator */
-                free(line);
-                strcat(result[*numElements], "\0");
-                /*
-                result[*numElements][strlen(result[*numElements])] = '\0';
-                */
-                /* Increase the size of array */
-                *numElements += 1;
+
+                if (!repeat) {
+                    /* After we found the event name */
+                    if (result == NULL) {
+                        result = calloc (1, sizeof (char *) );
+                    } else {
+                        result = realloc ( result, sizeof (char *) * ( *numElements + 1) ) ;
+                    }
+                    /* Copy it into the resulting array */
+                    int strLen = strlen(line) + 1;
+                    result[*numElements] = NULL;
+                    result[*numElements] = calloc(1, strLen );
+                    strcpy(result[*numElements], line);
+                    /* Free & append the null terminator */
+                    free(line);
+                    strcat(result[*numElements], "\0");
+                    /*
+                    result[*numElements][strlen(result[*numElements])] = '\0';
+                    */
+                    /* Increase the size of array */
+                    *numElements += 1;
+                }
             }
         }
         index++;

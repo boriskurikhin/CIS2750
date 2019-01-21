@@ -5,14 +5,19 @@ PRODID:-//hacksw/handcal//NONSGML v1.0//EN
 ;I am a comment
 BEGIN:VEVENT
 UID:another one
-TEST: abc
- def
-TEST: hello
-  world
+TEST: abcdef
+TEST: helloworld
+REALLY: long
+motherfncli: fwefew
+wefewf:wefewfewfwef
+ewfewfewf;wefewfewfewfewfewfewfweffwefewfewfewfewfewfewfewfewfewfewfewfewfewfew
+fewfewfew:
+ wfewfewf
+  feewfewf
+brea
 DTSTAMP:19970714T1700
  0
  0Z
-DTSTART:19970714T17
- 0000Z
+DTSTART:19970714T170000Z
 END:VEVENT
 END:VCALENDAR
