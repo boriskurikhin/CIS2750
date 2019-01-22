@@ -238,13 +238,29 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             DTSTAMP = findProperty(entire_file, beginLine, numLines, "DTSTAMP:", true, &dtc);
 
             /* Quick stamp validation & null checking */
-            if (DTSTAMP == NULL || !strlen(DTSTAMP[0]) || !validateStamp(DTSTAMP[0])) {
-                if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); };
+            if (DTSTAMP == NULL || !strlen(DTSTAMP[0]) || !validateStamp(DTSTAMP[0]) ) {
+                if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
                 if (UID) { free(UID[0]); free(UID); }
                 for (int i = 0; i < numLines; i++) free(entire_file[i]);
                 free(entire_file);
                 #if DEBUG
                     printf("Error! Some event is missing a DTSTAMP or the DTSTAMP format is invalid..\n");
+                #endif
+                return OTHER_ERROR;
+            }
+    
+            char ** DTSTART = NULL;
+            int dts = 0;
+            DTSTART = findProperty(entire_file, beginLine, numLines, "DTSTART:", true, &dts);
+
+            if (DTSTART == NULL || !strlen(DTSTART[0]) || !validateStamp(DTSTART[0])) {
+                if (DTSTART) { free(DTSTART[0]); free(DTSTART); }
+                if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
+                if (UID) { free(UID[0]); free(UID); }
+                for (int i = 0; i < numLines; i++) free(entire_file[i]);
+                free(entire_file);
+                #if DEBUG
+                    printf("Error! Some event is missing a DTSTART or the DTSTART format is invalid..\n");
                 #endif
                 return OTHER_ERROR;
             }
@@ -254,6 +270,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
             /* Writing the date & time into their respective slots */
             int di = 0, ti = 0, index = 0;
+
             bool isUTC = (DTSTAMP[0][strlen(DTSTAMP[0]) - 1] == 'Z' ? true : false);
             for ( ; index < (isUTC ? strlen(DTSTAMP[0]) - 1 : strlen(DTSTAMP[0])); index++) {
                 if (DTSTAMP[0][index] != 'T') {
@@ -261,16 +278,32 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                     else newEvent->creationDateTime.time[ti++] = DTSTAMP[0][index];
                 }
             }
-            /* UTC or NOT */
             newEvent->creationDateTime.UTC = isUTC;
+
+            /* Start date is also required apparently */
+
+            di = ti = index = 0;
+            isUTC = (DTSTART[0][strlen(DTSTART[0]) - 1] == 'Z' ? true : false);
+            for ( ; index < (isUTC ? strlen(DTSTART[0]) - 1 : strlen(DTSTART[0])); index++) {
+                if (DTSTART[0][index] != 'T') {
+                    if (index < 8) newEvent->startDateTime.date[di++] = DTSTART[0][index];
+                    else newEvent->startDateTime.time[ti++] = DTSTART[0][index];
+                }
+            }
+            
+            newEvent->startDateTime.UTC = isUTC;
+
             /* Append null terminators */
             strcat(newEvent->creationDateTime.date, "\0");
             strcat(newEvent->creationDateTime.time, "\0");
+            strcat(newEvent->startDateTime.date, "\0");
+            strcat(newEvent->startDateTime.time, "\0");
         
             strcpy(newEvent->UID, UID[0]);
 
             if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); };
             if (UID) { free(UID[0]); free(UID); }
+            if (DTSTART) { free(DTSTART[0]); free(DTSTART); }
 
             /* Once that's done, we can start parsing out other information */
             int pCount = 0, errors = 0;
@@ -932,15 +965,13 @@ char* printEvent(void* toBePrinted) {
         result = (char *) realloc (result, strlen(result) + 6);
         strcat(result, "(UTC)");
     }
-    if (strlen(event->startDateTime.date) && strlen(event->startDateTime.time)) {
-        result = (char *) realloc(result, strlen(result) + strlen(event->startDateTime.date) + strlen(event->startDateTime.time) + 11);
-        strcat(result, "\n\tDTSTART->");
-        strcat(result, event->startDateTime.date);
-        strcat(result, event->startDateTime.time);
-        if (event->startDateTime.UTC) {
-            result = (char *) realloc (result, strlen(result) + 6);
-            strcat(result, "(UTC)");
-        }
+    result = (char *) realloc(result, strlen(result) + strlen(event->startDateTime.date) + strlen(event->startDateTime.time) + 11);
+    strcat(result, "\n\tDTSTART->");
+    strcat(result, event->startDateTime.date);
+    strcat(result, event->startDateTime.time);
+    if (event->startDateTime.UTC) {
+        result = (char *) realloc (result, strlen(result) + 6);
+        strcat(result, "(UTC)");
     }
     char * otherProps = NULL;
     otherProps = toString(event->properties);
@@ -989,7 +1020,7 @@ int validateStamp ( char * check ) {
         }
     }
     /* We need to know where the date ends */
-    if (to != 1) return 0;
+    if (to != 1 && strlen(check) != 8) return 0;
    
     char month[2];
     char day[2];
@@ -1011,8 +1042,12 @@ int validateStamp ( char * check ) {
         day[di++] = check[index++];
     }
     /* So at this point we have the thing */
+
+    if (strlen(check) == 8) return 1;
+    
     if (check[index] != 'T') return 0;
     index++;
+
 
     /* NO LEAP YEARS??? */
     /* Might have to check each month individually */
