@@ -1,6 +1,12 @@
 #include "LinkedListAPI.h"
 #include "assert.h"
 
+/* 
+    Name: Boris Skurikhin
+    ID: 1007339
+	Notice: 85% of this code was not written by me.
+*/
+
 /** Function to initialize the list metadata head to the appropriate function pointers. Allocates memory to the struct.
 *@return pointer to the list head
 *@param printFunction function pointer to print a single node of the list

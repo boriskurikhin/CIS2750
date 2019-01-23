@@ -5,6 +5,11 @@
 #include <limits.h>
 #define DEBUG 1
 
+/* 
+    Name: Boris Skurikhin
+    ID: 1007339
+*/
+
 Calendar * calendar;
 
 char ** readFile (char * , int *);
@@ -108,7 +113,8 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         }
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
-
+        free(obj);
+        obj = NULL;
         return OTHER_ERROR;
     }
     /* Trim whitespace */
@@ -122,7 +128,8 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         if (version) { free(version[0]); free(version); } 
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
-
+        free(obj);
+        obj = NULL;
         return OTHER_ERROR;
     }
     /* It's not a number, cannot be represented by a float */
@@ -139,6 +146,8 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         if (version) { free(version[0]); free(version); } 
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
+        free(obj);
+        obj = NULL;
         return OTHER_ERROR;
     }
     /* Write the version & production id */
@@ -159,6 +168,8 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         free(calendarProperties);
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
+        free(obj);
+        obj = NULL;
         return OTHER_ERROR;
     }
 
@@ -177,6 +188,8 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 free(calendarProperties);
                 for (int i = 0; i < numLines; i++) free(entire_file[i]);
                 free(entire_file);
+                free(obj);
+                obj = NULL;
                 return OTHER_ERROR;
             }
             for (int c = 0; c < count; c++) {
@@ -230,6 +243,8 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 #if DEBUG
                     printf("Error! Some event is missing a UID\n");
                 #endif
+                free(obj);
+                obj = NULL;
                 return OTHER_ERROR;
             }
 
@@ -246,6 +261,8 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 #if DEBUG
                     printf("Error! Some event is missing a DTSTAMP or the DTSTAMP format is invalid..\n");
                 #endif
+                free(obj);
+                obj = NULL;
                 return OTHER_ERROR;
             }
     
@@ -255,19 +272,57 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
             if (DTSTART == NULL || !strlen(DTSTART[0]) || !validateStamp(DTSTART[0])) {
                 if (DTSTART) { free(DTSTART[0]); free(DTSTART); }
-                if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
-                if (UID) { free(UID[0]); free(UID); }
-                for (int i = 0; i < numLines; i++) free(entire_file[i]);
-                free(entire_file);
-                #if DEBUG
-                    printf("Error! Some event is missing a DTSTART or the DTSTART format is invalid..\n");
-                #endif
-                return OTHER_ERROR;
+                dts = 0;
+                DTSTART = findProperty(entire_file, beginLine, numLines, "DTSTART;", true, &dts);
+                /* If it's still bad, off it */
+                if (DTSTART == NULL || !strlen(DTSTART[0])) {
+                    if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
+                    if (UID) { free(UID[0]); free(UID); }
+                    for (int i = 0; i < numLines; i++) free(entire_file[i]);
+                    free(entire_file);
+                    #if DEBUG
+                        printf("Error! Some event is missing a DTSTART or the DTSTART format is invalid..\n");
+                    #endif
+                    free(obj);
+                    obj = NULL;
+                    return OTHER_ERROR;
+                }
+                /* Here we know that we have a timezone thing, and we need to extract it */
+                int quote = 0, l = 0, colonIndex = -1;
+                /* Find the index of the colon */
+                for (; l < strlen(DTSTART[0]); l++) {
+                    if (DTSTART[0][l] == '"') quote++;
+                    if (DTSTART[0][l] == ':' && quote == 2) {
+                        colonIndex = l;
+                        break;
+                    }
+                }
+                /* The parameter was broken */
+                if (quote != 2 || colonIndex < 0) {
+                    free(DTSTART[0]);
+                    free(DTSTART);
+                    if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
+                    if (UID) { free(UID[0]); free(UID); }
+                    for (int i = 0; i < numLines; i++) free(entire_file[i]);
+                    free(entire_file);
+                    #if DEBUG
+                        printf("Error! The time zone parameter is invalid.\n");
+                    #endif
+                    free(obj);
+                    obj = NULL;
+                    return OTHER_ERROR;
+                }
+                /* Essentially we just ignore the timezone parameter */
+                char * newDate = (char *) calloc ( 1, strlen(DTSTART[0]) - colonIndex + 1);
+                for (int vi = colonIndex + 1, ii = 0; vi < strlen(DTSTART[0]); vi++, ii++)
+                    newDate[ii] = DTSTART[0][vi];
+                strcpy(DTSTART[0], newDate);
+                free(newDate);
             }
 
             Event * newEvent = NULL;
             newEvent = (Event *) calloc ( 1, sizeof(Event) );
-
+            newEvent->properties = initializeList(printProperty, deleteProperty, compareProperties);
             /* Writing the date & time into their respective slots */
             int di = 0, ti = 0, index = 0;
 
@@ -296,14 +351,15 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             /* Append null terminators */
             strcat(newEvent->creationDateTime.date, "\0");
             strcat(newEvent->creationDateTime.time, "\0");
+
             strcat(newEvent->startDateTime.date, "\0");
             strcat(newEvent->startDateTime.time, "\0");
-        
+            
             strcpy(newEvent->UID, UID[0]);
 
             if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); };
-            if (UID) { free(UID[0]); free(UID); }
             if (DTSTART) { free(DTSTART[0]); free(DTSTART); }
+            if (UID) { free(UID[0]); free(UID); }
 
             /* Once that's done, we can start parsing out other information */
             int pCount = 0, errors = 0;
@@ -317,14 +373,15 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 if (eventProperties) free(eventProperties);
                 for (int x = 0; x < numLines; x++) free(entire_file[x]);
                 free(entire_file);
+                free(obj);
+                obj = NULL;
                 return OTHER_ERROR;
             }
 
-            newEvent->properties = initializeList(printProperty, deleteProperty, compareProperties);
 
             for (int x = 0; x < pCount; x++) {
                 /* We already have this one */
-                if (strcasecmp(eventProperties[x], "UID:") && strcasecmp(eventProperties[x], "DTSTAMP:") && strcasecmp(eventProperties[x], "DTSTART:")) {
+                if (strcasecmp(eventProperties[x], "UID:") && strcasecmp(eventProperties[x], "DTSTAMP:") && strcasecmp(eventProperties[x], "DTSTAMP;") && strcasecmp(eventProperties[x], "DTSTART:") && strcasecmp(eventProperties[x], "DTSTART;")) {
                     
                     int valueCount = 0;
                     char ** value = findProperty(entire_file, beginLine, numLines, eventProperties[x], false, &valueCount);
@@ -334,6 +391,8 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                         free(eventProperties);
                         for (int i = 0; i < numLines; i++) free(entire_file[i]);
                         free(entire_file);
+                        free(obj);
+                        obj = NULL;
                         return OTHER_ERROR;
                     }
 
@@ -349,6 +408,8 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                             free(eventProperties);
                             for (int j = 0; j < numLines; j++) free(entire_file[j]);
                             free(entire_file);
+                            free(obj);
+                            obj = NULL;
                             return OTHER_ERROR;
                         }
 
@@ -368,10 +429,8 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 free(eventProperties[x]);
             }
             free(eventProperties);
-
             /* Insert the event at the back of the queue in the calendar object */
             insertBack((*obj)->events, newEvent);
-
             /* Once we're done */
             beginLine = endLine + 1;
         } else {
@@ -960,15 +1019,19 @@ char* printEvent(void* toBePrinted) {
     strcat(result, "\n\tDTSTAMP->");
     result = (char *) realloc (result, strlen(result) + strlen(event->creationDateTime.date) + strlen(event->creationDateTime.time) + 1);
     strcat(result, event->creationDateTime.date);
-    strcat(result, event->creationDateTime.time);
+    if (strlen(event->creationDateTime.time))
+        strcat(result, event->creationDateTime.time);
     if (event->creationDateTime.UTC) {
         result = (char *) realloc (result, strlen(result) + 6);
         strcat(result, "(UTC)");
     }
-    result = (char *) realloc(result, strlen(result) + strlen(event->startDateTime.date) + strlen(event->startDateTime.time) + 11);
+    result = (char *) realloc(result, strlen(result) + strlen(event->startDateTime.date) + 12);
     strcat(result, "\n\tDTSTART->");
     strcat(result, event->startDateTime.date);
-    strcat(result, event->startDateTime.time);
+    if (strlen(event->startDateTime.time)) {
+        result = (char *) realloc (result, strlen(result) + strlen(event->startDateTime.time) + 1);
+        strcat(result, event->startDateTime.time);
+    }
     if (event->startDateTime.UTC) {
         result = (char *) realloc (result, strlen(result) + 6);
         strcat(result, "(UTC)");
@@ -1041,13 +1104,12 @@ int validateStamp ( char * check ) {
             return 0;
         day[di++] = check[index++];
     }
-    /* So at this point we have the thing */
-
+    /* So at this point we know that the day is correct and that, 
+    if the lenght is exactly 8 then the date is correct */
     if (strlen(check) == 8) return 1;
-    
+
     if (check[index] != 'T') return 0;
     index++;
-
 
     /* NO LEAP YEARS??? */
     /* Might have to check each month individually */
