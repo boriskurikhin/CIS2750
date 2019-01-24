@@ -1,0 +1,22 @@
+BEGIN:VCALENDAR
+METHOD:PUBLISH
+;X-WR-TIMEZONE:America/Los_Angeles
+CALSCALE:GREGORIAN
+VERSION:2.0
+PRODID:-//PUC Calendar// v2.0//EN
+BEGIN:VEVENT
+UID:31754826317
+TZID:America/Los_Angeles
+DTSTART:20091001T100000
+URL;VALUE=URI:http://www.puc.edu/news/calendar/events/dates/colloquy-dr-knight
+SUMMARY:Colloquy: Heather Knight
+DTEND:20091001T100000
+LOCATION:Sanctuary
+TZID:America/Los_Angeles
+URL;VALUE=URI:http://www.puc.edu/news/calendar/events/dates/colloquy-dr-knight
+DTSTAMP:20091001T100000
+SUMMARY:Colloquy: Heather Knight
+DTEND:20091001T100000
+LOCATION:Sanctuary
+END:VEVENT
+END:VCALENDAR

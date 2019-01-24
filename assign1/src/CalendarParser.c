@@ -19,6 +19,7 @@ void trim (char ** );
 int checkFormatting( char ** entireFile, int numLines);
 char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * numElements, int * errors);
 int validateStamp ( char * check );
+Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
 
 /* ALL PROPERTIES OF CALENDAR */
 const char calProperties[2][50] = { "CALSCALE", "METHOD" };
@@ -113,7 +114,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         }
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
-        free(obj);
+        deleteCalendar(*obj);
         obj = NULL;
         return OTHER_ERROR;
     }
@@ -128,7 +129,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         if (version) { free(version[0]); free(version); } 
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
-        free(obj);
+        deleteCalendar(*obj);
         obj = NULL;
         return OTHER_ERROR;
     }
@@ -146,7 +147,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         if (version) { free(version[0]); free(version); } 
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
-        free(obj);
+        deleteCalendar(*obj);
         obj = NULL;
         return OTHER_ERROR;
     }
@@ -168,7 +169,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         free(calendarProperties);
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
-        free(obj);
+        deleteCalendar(*obj);
         obj = NULL;
         return OTHER_ERROR;
     }
@@ -188,7 +189,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 free(calendarProperties);
                 for (int i = 0; i < numLines; i++) free(entire_file[i]);
                 free(entire_file);
-                free(obj);
+                deleteCalendar(*obj);
                 obj = NULL;
                 return OTHER_ERROR;
             }
@@ -243,7 +244,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 #if DEBUG
                     printf("Error! Some event is missing a UID\n");
                 #endif
-                free(obj);
+                deleteCalendar(*obj);
                 obj = NULL;
                 return OTHER_ERROR;
             }
@@ -261,7 +262,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 #if DEBUG
                     printf("Error! Some event is missing a DTSTAMP or the DTSTAMP format is invalid..\n");
                 #endif
-                free(obj);
+                deleteCalendar(*obj);
                 obj = NULL;
                 return OTHER_ERROR;
             }
@@ -283,7 +284,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                     #if DEBUG
                         printf("Error! Some event is missing a DTSTART or the DTSTART format is invalid..\n");
                     #endif
-                    free(obj);
+                    deleteCalendar(*obj);
                     obj = NULL;
                     return OTHER_ERROR;
                 }
@@ -308,7 +309,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                     #if DEBUG
                         printf("Error! The time zone parameter is invalid.\n");
                     #endif
-                    free(obj);
+                    deleteCalendar(*obj);
                     obj = NULL;
                     return OTHER_ERROR;
                 }
@@ -373,11 +374,10 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 if (eventProperties) free(eventProperties);
                 for (int x = 0; x < numLines; x++) free(entire_file[x]);
                 free(entire_file);
-                free(obj);
+                deleteCalendar(*obj);
                 obj = NULL;
                 return OTHER_ERROR;
             }
-
 
             for (int x = 0; x < pCount; x++) {
                 /* We already have this one */
@@ -391,7 +391,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                         free(eventProperties);
                         for (int i = 0; i < numLines; i++) free(entire_file[i]);
                         free(entire_file);
-                        free(obj);
+                        deleteCalendar(*obj);
                         obj = NULL;
                         return OTHER_ERROR;
                     }
@@ -408,7 +408,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                             free(eventProperties);
                             for (int j = 0; j < numLines; j++) free(entire_file[j]);
                             free(entire_file);
-                            free(obj);
+                            deleteCalendar(*obj);
                             obj = NULL;
                             return OTHER_ERROR;
                         }
@@ -429,6 +429,26 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 free(eventProperties[x]);
             }
             free(eventProperties);
+
+            /* Once we're done reading in the properties, we can begin reading in ALARMS */
+            newEvent->alarms = initializeList(printAlarm, deleteAlarm, compareAlarms);
+            for (int ai = beginLine + 1; ai < endLine; ai++) {
+                if (!strcasecmp(entire_file[ai], "BEGIN:VALARM\r\n")) {
+                    Alarm * alarm = createAlarm(entire_file, ai, endLine);
+                    if (alarm == NULL) {
+                        for (int i = 0; i < numLines; i++) free(entire_file[i]);
+                        free(entire_file);
+                        #if DEBUG
+                            printf("Error! Something wrong with the alarm.\n");
+                        #endif
+                        deleteCalendar(*obj);
+                        obj = NULL;
+                        return OTHER_ERROR;
+                    }
+                    insertBack(newEvent->alarms, alarm);
+                }
+            }
+
             /* Insert the event at the back of the queue in the calendar object */
             insertBack((*obj)->events, newEvent);
             /* Once we're done */
@@ -888,7 +908,7 @@ char * printCalendar (const Calendar * obj) {
 
     char * events = NULL;
     events = toString(obj->events);
-    length += strlen(events) + 1;
+    length += strlen(events) + 2;
     result = (char *) realloc ( result, length);
     strcat(result, events);
     strcat(result, "\n");
@@ -998,7 +1018,14 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
 void deleteEvent(void* toBeDeleted) {
     Event * e = (Event *) toBeDeleted;
     freeList(e->properties);
+    freeList(e->alarms);
     free(e);
+}
+void deleteAlarm(void* toBeDeleted) {
+    Alarm * a = (Alarm *) toBeDeleted;
+    free(a->trigger);
+    freeList(a->properties);
+    free(a);
 }
 int compareEvents(const void* first, const void* second) {
     return 0;
@@ -1011,8 +1038,8 @@ char* printEvent(void* toBePrinted) {
     char * result = NULL;
     
     event = (Event *) toBePrinted;
-    result = (char *) calloc(1, 8);
-    strcpy(result, "\tEVENT:");
+    result = (char *) calloc(1, 22);
+    strcpy(result, "\t=BEGIN EVENT=\n\tUID->");
     result = (char *) realloc( result, strlen(result) + strlen(event->UID) + 1);
     strcat(result, event->UID);
     result = (char *) realloc (result, strlen(result) + 12);
@@ -1038,12 +1065,43 @@ char* printEvent(void* toBePrinted) {
     }
     char * otherProps = NULL;
     otherProps = toString(event->properties);
-    result = (char *) realloc (result, strlen(result) + strlen(otherProps) + 2);
+    result = (char *) realloc (result, strlen(result) + strlen(otherProps) + 1);
     strcat(result, otherProps);
     free(otherProps);
 
+    char * alarms = NULL;
+    alarms = toString(event->alarms);
+    result = (char *) realloc (result, strlen(result) + strlen(alarms) + 2);
+    strcat(result, alarms);
+    free(alarms);
+
     strcat(result, "\n");
+    result = (char *) realloc(result, strlen(result) + 13);
+    strcat(result, "\t=END EVENT=");
+
     return result;
+}
+char* printAlarm(void* toBePrinted) {
+    Alarm * a = (Alarm *) toBePrinted;
+    char * output = (char *) calloc ( 1, 16);
+    strcpy(output, "\t=BEGIN ALARM=\n");
+    output = (char *) realloc (output, strlen(output) + strlen(a->action) + 1 + 1 + 8 + 1 );
+    strcat(output, "\tACTION->");
+    strcat(output, a->action);
+    strcat(output, "\n");
+    output = (char *) realloc (output, strlen(output) + strlen(a->trigger) + 1 + 1 + 9 );
+    strcat(output, "\tTRIGGER->");
+    strcat(output, a->trigger);
+    /* also properties */
+    char * otherProps = NULL;
+    otherProps = toString(a->properties);
+    output = (char *) realloc (output, strlen(output) + strlen(otherProps) + 1);
+    strcat(output, otherProps);
+    
+    free(otherProps);
+    output = (char *) realloc(output, strlen(output) + 14);
+    strcat(output, "\n\t=END ALARM=");
+    return output;
 }
 /* PROPERTIES */
 void deleteProperty(void* toBeDeleted) {
@@ -1052,6 +1110,9 @@ void deleteProperty(void* toBeDeleted) {
     free(p);
 }
 int compareProperties(const void* first, const void* second) {
+    return 0;
+}
+int compareAlarms(const void * first, const void * second) {
     return 0;
 }
 /* Prints an individual property */
@@ -1130,4 +1191,94 @@ int validateStamp ( char * check ) {
     if ( second[0] >= '6' ) return 0;
     /* For now */
     return 1;
+}
+Alarm * createAlarm(char ** file, int beginIndex, int endIndex) {
+    /* gotta make sure that the line begins correctly */
+    if (strcasecmp(file[beginIndex], "BEGIN:VALARM\r\n")) return NULL;
+    Alarm * alarm = (Alarm *) calloc ( 1, sizeof (Alarm) );
+    alarm->properties = initializeList(printProperty, deleteProperty, compareProperties);
+    /* Allocated memory for an alarm object */
+    int numProps = 0, errors = 0;
+    /* Grab alarm properties */
+    char ** pnames = getAllPropertyNames(file, beginIndex, endIndex, &numProps, &errors);
+    
+    if (errors || !numProps) {
+        #if DEBUG
+            printf("Error! While retrieving properties of event (inside an alarm)\n");
+        #endif
+        for (int x = 0; x < numProps; x++) free(pnames[x]);
+        if (pnames) free(pnames);
+        freeList(alarm->properties);
+        free(alarm);
+        return NULL;
+    }
+
+    int ftrig = 0;
+    int faction = 0;
+
+    /* Run through props */
+    for (int i = 0; i < numProps; i++) {
+        /* We need to check some required ones here */
+        int nump = 0;
+        if (!strcasecmp(pnames[i], "ACTION:") || !strcasecmp(pnames[i], "ACTION;")) {
+            char ** pval = findProperty(file, beginIndex, endIndex, pnames[i], true, &nump);
+            /* Either not found, or bad, or more than one */
+            if (pval == NULL) {
+                for (int j = 0; j < numProps; j++) free(pnames[j]);
+                free(pnames);
+                freeList(alarm->properties);
+                if (alarm->trigger) free(alarm->trigger);
+                free(alarm);
+                return NULL;
+            }
+            /* All goodie */
+            strcpy(alarm->action, pval[0]);
+            faction++;
+            free(pval[0]);
+            free(pval);
+        } else if ( !strcasecmp (pnames[i], "TRIGGER:") || !strcasecmp(pnames[i], "TRIGGER;")) {
+            char ** pval = findProperty(file, beginIndex, endIndex, pnames[i], true, &nump);
+            if (pval == NULL) {
+                for (int j = 0; j < numProps; j++) free(pnames[j]);
+                free(pnames);
+                freeList(alarm->properties);
+                free(alarm);
+                return NULL;
+            }
+            /* All goodie */
+            alarm->trigger = (char *) calloc ( 1, strlen(pval[0]) + 1);
+            strcpy(alarm->trigger, pval[0]);
+            ftrig++;
+            free(pval[0]);
+            free(pval);
+        } else {
+            /* Handle others */
+            char ** pval = findProperty(file, beginIndex, endIndex, pnames[i], false, &nump);
+            if (pval == NULL) {
+                for (int j = 0; j < numProps; j++) free(pnames[j]);
+                free(pnames);
+                freeList(alarm->properties);
+                if (alarm->trigger) free(alarm->trigger);
+                free(alarm);
+                return NULL;
+            }
+            for (int j = 0; j < nump; j++) {
+                Property * prop = (Property *) calloc ( 1, sizeof(Property) + strlen(pval[j]) + 1);
+
+                strcpy(prop->propName, pnames[i]);
+                strcpy(prop->propDescr, pval[j]);
+
+                insertBack(alarm->properties, prop);
+            }
+            /* Free it, we don't need it anymore */
+            for (int j = 0; j < nump; j++) free(pval[j]);
+            free(pval);
+        }
+    }
+    for (int i = 0; i < numProps; i++) free(pnames[i]);
+    free(pnames);
+    if (ftrig == 1 && faction == 1) return alarm;
+    freeList(alarm->properties);
+    free(alarm);
+    return NULL;
 }
