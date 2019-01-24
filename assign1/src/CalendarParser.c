@@ -256,15 +256,51 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             /* Quick stamp validation & null checking */
             if (DTSTAMP == NULL || !strlen(DTSTAMP[0]) || !validateStamp(DTSTAMP[0]) ) {
                 if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
-                if (UID) { free(UID[0]); free(UID); }
-                for (int i = 0; i < numLines; i++) free(entire_file[i]);
-                free(entire_file);
-                #if DEBUG
-                    printf("Error! Some event is missing a DTSTAMP or the DTSTAMP format is invalid..\n");
-                #endif
-                deleteCalendar(*obj);
-                obj = NULL;
-                return OTHER_ERROR;
+                DTSTAMP = findProperty(entire_file, beginLine, numLines, "DTSTAMP;", true, &dtc);
+
+                if (DTSTAMP == NULL || !strlen(DTSTAMP[0])) {
+                    if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
+                    if (UID) { free(UID[0]); free(UID); }
+                    for (int i = 0; i < numLines; i++) free(entire_file[i]);
+                    free(entire_file);
+                    #if DEBUG
+                        printf("Error! Some event is missing a DTSTAMP or the DTSTAMP format is invalid..\n");
+                    #endif
+                    deleteCalendar(*obj);
+                    obj = NULL;
+                    return OTHER_ERROR;
+                }
+
+                int quote = 0, l = 0, colonIndex = -1;
+                /* Find the index of the colon */
+                for (; l < strlen(DTSTAMP[0]); l++) {
+                    if (DTSTAMP[0][l] == '"') quote++;
+                    if (DTSTAMP[0][l] == ':' && quote == 2) {
+                        colonIndex = l;
+                        break;
+                    }
+                }
+                /* The parameter was broken */
+                if (quote != 2 || colonIndex < 0) {
+                    free(DTSTAMP[0]);
+                    free(DTSTAMP);
+                    if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
+                    if (UID) { free(UID[0]); free(UID); }
+                    for (int i = 0; i < numLines; i++) free(entire_file[i]);
+                    free(entire_file);
+                    #if DEBUG
+                        printf("Error! The time zone parameter is invalid.\n");
+                    #endif
+                    deleteCalendar(*obj);
+                    obj = NULL;
+                    return OTHER_ERROR;
+                }
+                /* Essentially we just ignore the timezone parameter */
+                char * newDate = (char *) calloc ( 1, strlen(DTSTAMP[0]) - colonIndex + 1);
+                for (int vi = colonIndex + 1, ii = 0; vi < strlen(DTSTAMP[0]); vi++, ii++)
+                    newDate[ii] = DTSTAMP[0][vi];
+                strcpy(DTSTAMP[0], newDate);
+                free(newDate);
             }
     
             char ** DTSTART = NULL;
