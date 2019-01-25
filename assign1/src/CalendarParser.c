@@ -12,6 +12,7 @@
 
 Calendar * calendar;
 
+/* Function definitions */
 char ** readFile (char * , int *);
 char ** findProperty(char ** file, int beginIndex, int endIndex, char * propertyName, bool once, int * count );
 char * getToken ( char * entireFile, int * index);
@@ -20,6 +21,8 @@ int checkFormatting( char ** entireFile, int numLines);
 char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * numElements, int * errors);
 int validateStamp ( char * check );
 Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
+
+/* End of function definitions */ 
 
 /* ALL PROPERTIES OF CALENDAR */
 const char calProperties[2][50] = { "CALSCALE", "METHOD" };
@@ -217,6 +220,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
     /* Allocate some memory for the events */
     (*obj)->events = initializeList(printEvent, deleteEvent, compareEvents);
+    int eventCount = 0;
 
     /* Start tracking the events */
     for (int beginLine = 1; beginLine < numLines; ) {
@@ -487,6 +491,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
             /* Insert the event at the back of the queue in the calendar object */
             insertBack((*obj)->events, newEvent);
+            eventCount++;
             /* Once we're done */
             beginLine = endLine + 1;
         } else {
@@ -497,13 +502,23 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     for (int i = 0; i < numLines; i++) free(entire_file[i]);
     free(entire_file);
 
+    /* There are no events */
+    if (!eventCount) {
+        #if DEBUG
+            printf("There are no events in the calendar..");
+        #endif
+        deleteCalendar(*obj);
+        *obj = NULL;
+        return OTHER_ERROR;
+    }
+
     return OK;
 }
 /* Deletes the calendar */
 void deleteCalendar(Calendar * obj) {
     if (obj == NULL) return;
-    freeList( obj->properties );
-    freeList( obj->events );
+    if (obj->properties) freeList( obj->properties );
+    if (obj->events) freeList( obj->events );
     free ( obj );
 }
 /* Assumes everything ends with \r\n */
@@ -1053,14 +1068,14 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
 /* EVENTS */
 void deleteEvent(void* toBeDeleted) {
     Event * e = (Event *) toBeDeleted;
-    freeList(e->properties);
-    freeList(e->alarms);
+    if (e->properties) freeList(e->properties);
+    if (e->alarms) freeList(e->alarms);
     free(e);
 }
 void deleteAlarm(void* toBeDeleted) {
     Alarm * a = (Alarm *) toBeDeleted;
     free(a->trigger);
-    freeList(a->properties);
+    if (a->properties) freeList(a->properties);
     free(a);
 }
 int compareEvents(const void* first, const void* second) {
@@ -1228,6 +1243,7 @@ int validateStamp ( char * check ) {
     /* For now */
     return 1;
 }
+/* This creates an alarm object */
 Alarm * createAlarm(char ** file, int beginIndex, int endIndex) {
     /* gotta make sure that the line begins correctly */
     if (strcasecmp(file[beginIndex], "BEGIN:VALARM\r\n")) return NULL;
@@ -1313,7 +1329,9 @@ Alarm * createAlarm(char ** file, int beginIndex, int endIndex) {
     }
     for (int i = 0; i < numProps; i++) free(pnames[i]);
     free(pnames);
+    
     if (ftrig == 1 && faction == 1) return alarm;
+    
     freeList(alarm->properties);
     free(alarm);
     return NULL;
