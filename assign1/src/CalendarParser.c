@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
-#define DEBUG 0
+#define DEBUG 1
 
 /* 
     Name: Boris Skurikhin
@@ -17,7 +17,7 @@ char ** readFile (char * , int *, ICalErrorCode *);
 char ** findProperty(char ** file, int beginIndex, int endIndex, char * propertyName, bool once, int * count, ICalErrorCode *);
 char * getToken ( char * entireFile, int * index, ICalErrorCode *);
 void trim (char ** );
-int checkFormatting( char ** entireFile, int numLines);
+ICalErrorCode checkFormatting( char ** entireFile, int numLines);
 char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * numElements, int * errors);
 int validateStamp ( char * check );
 Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
@@ -59,7 +59,7 @@ char* printError(ICalErrorCode err) {
             strcpy(result, "OK");
         break;
         case INV_FILE:
-            strcpy(result, "INV FILE");
+            strcpy(result, "INV_FILE");
         break;
         case INV_CAL:
             strcpy(result, "INV_CAL");
@@ -131,13 +131,14 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     }
 
     /* Validates the formatting of the file */
-    if (!checkFormatting(entire_file, numLines)) {
+    ICalErrorCode formatCheck = checkFormatting(entire_file, numLines);
+    if ( formatCheck != OK ) {
         #if DEBUG
             printf("It seems that the layout of the file events & alarms is incorrect\n");
         #endif
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
-        return INV_CAL;
+        return formatCheck;
     }
 
     __error__ = OK;
@@ -958,43 +959,47 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
     return NULL;
 }
 /* Verifies that all alarms & events are distributed correctly */
-int checkFormatting (char ** entire_file, int numLines) {
-    if (numLines < 2) return 0;
-    if (strcasecmp(entire_file[0], "BEGIN:VCALENDAR\r\n")) return 0;
-    if (strcasecmp(entire_file[numLines - 1], "END:VCALENDAR\r\n")) return 0;
+ICalErrorCode checkFormatting (char ** entire_file, int numLines ) {
+    if (numLines < 2) return INV_FILE;
+    
+    if (strcasecmp(entire_file[0], "BEGIN:VCALENDAR\r\n")) {
+        return INV_CAL;
+    }
+    if (strcasecmp(entire_file[numLines - 1], "END:VCALENDAR\r\n")) {
+        return INV_CAL;
+    }
 
     int isEventOpen = 0;
     int isAlarmOpen = 0;
     int numEventsOpened = 0, numEventsClosed = 0;
     int numAlarmsOpened = 0, numAlarmsClosed = 0;
-    int error = 0;
 
     for (int i = 1; i < numLines - 1; i++) {
         if (strcasecmp(entire_file[i], "BEGIN:VEVENT\r\n") == 0) {
-            if (isEventOpen) return 0; /* There's an open event */
-            if (isAlarmOpen) return 0; /* There's an open alarm */
+            if (isEventOpen) return INV_EVENT; /* There's an open event */
+            if (isAlarmOpen) return INV_ALARM; /* There's an open alarm */
 
             isEventOpen = 1;
             numEventsOpened++;
         } else if (strcasecmp(entire_file[i], "END:VEVENT\r\n") == 0) {
-            if (!isEventOpen) return 0; /* We have no ongoing events */
-            if (isAlarmOpen) return 0; /* There's an alarm open */
+            if (!isEventOpen) return INV_CAL; /* We have no ongoing events */
+            if (isAlarmOpen) return INV_ALARM; /* There's an alarm open */
             if (numAlarmsOpened != numAlarmsClosed) {
-                return 0; /* something is bad */
+                return INV_ALARM;
             }
             /* Each time we close an event we re-set alarms */
             numAlarmsOpened = numAlarmsClosed = 0;
             isEventOpen = 0;
             numEventsClosed++;
         } else if (strcasecmp(entire_file[i], "BEGIN:VALARM\r\n") == 0) {
-            if (isAlarmOpen) return 0;
-            if (!isEventOpen) return 0;
+            if (isAlarmOpen) return INV_ALARM;
+            if (!isEventOpen) return INV_CAL;
 
             isAlarmOpen = 1;
             numAlarmsOpened++;
         } else if (strcasecmp(entire_file[i], "END:VALARM\r\n") == 0) {
-            if (!isAlarmOpen) return 0;
-            if (!isEventOpen) return 0;
+            if (!isAlarmOpen) return INV_EVENT;
+            if (!isEventOpen) return INV_CAL;
 
             isAlarmOpen = 0;
             numAlarmsClosed++;
@@ -1003,11 +1008,17 @@ int checkFormatting (char ** entire_file, int numLines) {
             int colons = 0;
             for (int j = 1; j < lineLength; j++)
                 colons += (entire_file[i][j] == ':' || entire_file[i][j] == ';');
-            if (!colons) error = 1;
+            if (!colons) {
+                if (isAlarmOpen) return INV_ALARM;
+                if (isEventOpen) return INV_EVENT;
+                return INV_CAL;
+            }
         }
     }
-    /* Big Return */
-    return !isAlarmOpen && !isEventOpen && numAlarmsOpened == numAlarmsClosed && numEventsOpened == numEventsClosed && !error;
+    if (isAlarmOpen || numAlarmsOpened != numAlarmsClosed) return INV_ALARM;
+    if (isEventOpen || numEventsOpened != numEventsClosed) return INV_EVENT;
+    
+    return OK;
 }
 /* prints the calendar */
 char * printCalendar (const Calendar * obj) {
