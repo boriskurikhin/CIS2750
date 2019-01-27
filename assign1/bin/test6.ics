@@ -7,7 +7,7 @@ PRODID:-//PUC Calendar// v2.0//EN
 BEGIN:VEVENT
 UID:31754826317
 TZID:America/Los_Angeles
-DTSTART:20091001T100000
+DTSTART;TZID="Havana":20091001T100000
 URL;VALUE=URI:http://www.puc.edu/news/calendar/events/dates/colloquy-dr-knight
 SUMMARY:Colloquy: Heather Knight
 DTEND:20091001T100000
