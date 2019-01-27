@@ -1,17 +1,21 @@
 CALENDAR
-PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+PRODID:-//PUC Calendar// v2.0//EN
 VERSION:2.000000
+	METHOD->PUBLISH
+	CALSCALE->GREGORIAN
 EVENTS
 	=BEGIN EVENT=
-	UID->another one
-	DTSTAMP->19970714170000(UTC)
-	DTSTART->20190108120000
-	TEST-> abcdef
-	TEST-> helloworld
-	REALLY-> long
-	motherfncli-> fwefew
-	wefewf->wefewfewfwef
-	ewfewfewf->wefewfewfewfewfewfewfweffwefewfewfewfewfewfewfewfewfewfewfewfewfewfew
-	fewfewfew->wfewfewf feewfewfbrea
-	other->param=x:19970714T170000Z
+	UID->31754826317
+	DTSTAMP->20091001100000
+	DTSTART->20091001100000
+	TZID->America/Los_Angeles
+	TZID->America/Los_Angeles
+	URL->VALUE=URI:http://www.puc.edu/news/calendar/events/dates/colloquy-dr-knight
+	URL->VALUE=URI:http://www.puc.edu/news/calendar/events/dates/colloquy-dr-knight
+	SUMMARY->Colloquy: Heather Knight
+	SUMMARY->Colloquy: Heather Knight
+	DTEND->20091001T100000
+	DTEND->20091001T100000
+	LOCATION->Sanctuary
+	LOCATION->Sanctuary
 	=END EVENT=

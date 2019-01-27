@@ -381,7 +381,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 #endif
                 deleteCalendar(*obj);
                 *obj = NULL;
-                return INV_EVENT;
+                return __error__ == OTHER_ERROR ? INV_EVENT : INV_DT;
             }
             /* If it was found, but it's invalid */
             if (!validateStamp(DTSTAMP[0])) {
@@ -478,7 +478,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 #endif
                 deleteCalendar(*obj);
                 *obj = NULL;
-                return INV_EVENT;
+                return __error__ == OTHER_ERROR ? INV_EVENT : INV_DT;
             }
             /* We found it, but it's not valid */
             if (!validateStamp(DTSTART[0])) {
