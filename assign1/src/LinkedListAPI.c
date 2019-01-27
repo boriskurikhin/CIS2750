@@ -41,9 +41,10 @@ List * initializeList(char* (*printFunction)(void* toBePrinted),void (*deleteFun
 *@return  on success: NULL, on failure: head of list
 **/
 void freeList(List* list){	
-
-    clearList(list);
-	free(list);
+	if (list != NULL) {
+    	clearList(list);
+		free(list);
+	}
 }
 
 /**Function for creating a node for the linked list. 

@@ -1,0 +1,17 @@
+CALENDAR
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+VERSION:2.000000
+EVENTS
+	=BEGIN EVENT=
+	UID->another one
+	DTSTAMP->19970714170000(UTC)
+	DTSTART->20190108120000
+	TEST-> abcdef
+	TEST-> helloworld
+	REALLY-> long
+	motherfncli-> fwefew
+	wefewf->wefewfewfwef
+	ewfewfewf->wefewfewfewfewfewfewfweffwefewfewfewfewfewfewfewfewfewfewfewfewfewfew
+	fewfewfew->wfewfewf feewfewfbrea
+	other->param=x:19970714T170000Z
+	=END EVENT=

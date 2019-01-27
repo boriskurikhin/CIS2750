@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
-#define DEBUG 1
+#define DEBUG 0
 
 /* 
     Name: Boris Skurikhin
@@ -46,6 +46,11 @@ int main(int argv, char ** argc) {
 
     char * output = printCalendar(calendar);
     printf("%s", output);
+    #if DEBUG
+        FILE * out = fopen("output.txt", "w");
+        fprintf(out, "%s", output);
+        fclose(out);
+    #endif
     free(output);
     free(errorCode);
     deleteCalendar(calendar);
@@ -549,6 +554,9 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 if (!strcasecmp(entire_file[ai], "BEGIN:VALARM\r\n")) {
                     Alarm * alarm = createAlarm(entire_file, ai, endLine);
                     if (alarm == NULL) {
+                        freeList(newEvent->alarms);
+                        freeList(newEvent->properties);
+                        free(newEvent);
                         for (int i = 0; i < numLines; i++) free(entire_file[i]);
                         free(entire_file);
                         #if DEBUG
