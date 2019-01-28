@@ -1,21 +1,38 @@
 CALENDAR
-PRODID:-//PUC Calendar// v2.0//EN
+PRODID:bkghggf
 VERSION:2.000000
-	METHOD->PUBLISH
-	CALSCALE->GREGORIAN
+	ORGANIZER->CN=Jimmy Johnson:MAILTO:john.doe@example.com
 EVENTS
 	=BEGIN EVENT=
-	UID->31754826317
-	DTSTAMP->20091001100000
-	DTSTART->20091001100000
-	TZID->America/Los_Angeles
-	TZID->America/Los_Angeles
-	URL->VALUE=URI:http://www.puc.edu/news/calendar/events/dates/colloquy-dr-knight
-	URL->VALUE=URI:http://www.puc.edu/news/calendar/events/dates/colloquy-dr-knight
-	SUMMARY->Colloquy: Heather Knight
-	SUMMARY->Colloquy: Heather Knight
-	DTEND->20091001T100000
-	DTEND->20091001T100000
-	LOCATION->Sanctuary
-	LOCATION->Sanctuary
+	UID->uid1@example.com
+	DTSTAMP->19970714170000(UTC)
+	DTSTART->19970714170000(UTC)
+	DTEND->19970715T035959Z
+	CLASS->PUBLIC
+	SUMMARY->Lorem ipsum dolor sit amet,consectetur adipiscing elit.
+	=END EVENT=
+	=BEGIN EVENT=
+	UID->ikii
+	DTSTAMP->19970714170000(UTC)
+	DTSTART->19970714170000(UTC)
+	DTEND->19970715T035959Z
+	CLASS->PUBLIC
+	SUMMARY->Lorem ipsum dolor sit amet,consectetur adipiscing elit.
+	=BEGIN ALARM=
+	ACTION->eweewewew
+	TRIGGER->reer
+	SOMETHING:-> ERWEEWE
+	SOMETHING:-> ERWEEWE
+	SOMETHING:-> ERWEEWE
+	SOMETHING:-> ERWEEWE
+	SOMETHING:-> ERWEEWE
+	SOMETHING:-> ERWEEWE
+	SOMETHING:-> ERWEEWE
+	SOMETHING:-> ERWEEWE
+	SOMETHING:-> ERWEEWE
+	SOMETHING:-> ERWEEWE
+	SOMETHING:-> ERWEEWE
+	SOMETHING:-> ERWEEWE
+	SOMETHING:-> ERWEEWE
+	=END ALARM=
 	=END EVENT=

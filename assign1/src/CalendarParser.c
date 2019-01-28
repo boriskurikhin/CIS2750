@@ -22,17 +22,6 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
 int validateStamp ( char * check );
 Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
 
-/* End of function definitions */ 
-
-/* ALL PROPERTIES OF CALENDAR */
-const char calProperties[2][50] = { "CALSCALE", "METHOD" };
-const char calPropertiesMULTI[2][50] = {"X-PROP", "IANA-PROP"};
-
-/* ALL PROPERTIES FOR EVENT */
-const char eventPropertiesREQUIRED[3][50] = { "UID", "DTSTAMP", "DTSTART" };
-const char eventPropertiesONCE[14][50] = { "CLASS", "CREATED", "DESCRIPTION", "GEO", "LAST-MOD", "LOCATION", "ORGANIZER", "PRIORITY", "SEQ", "STATUS", "SUMMARY", "TRANSP", "URL", "RECURID" };
-const char eventPropertiesMULTI[15][50] = { "RRULE", "DTEND", "DURATION", "ATTACH", "ATTENDEE", "CATEGORIES", "COMMENT", "CONTACT", "EXDATE", "RSTATUS", "RELATED", "RESOURCES", "RDATE", "X-PROP", "IANA-PROP"};
-
 int main(int argv, char ** argc) {
     if (argv != 2) return 0;
 
@@ -43,9 +32,10 @@ int main(int argv, char ** argc) {
         free(errorCode);
         return 0;
     }
-
     char * output = printCalendar(calendar);
-    printf("%s", output);
+    if (output) {
+        printf("%s", output);
+    }
     #if DEBUG
         FILE * out = fopen("output.txt", "w");
         fprintf(out, "%s", output);
@@ -166,12 +156,13 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         
         if (__error__ == OTHER_ERROR) return DUP_VER;
 
-        return INV_CAL;
+        return version == NULL ? INV_CAL : INV_VER;
     }
     
     char ** prodId = findProperty(entire_file, 0, numLines, "PRODID:", true, &pcount, &__error__);
-    /* Trim whitespace */
+    /* Trim whitespace 
     trim(&version[0]);
+    */
     /* Questionable */
     if (prodId == NULL || version == NULL || strlen(version[0]) == 0 || strlen(prodId[0]) == 0) {
         #if DEBUG
@@ -184,7 +175,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         deleteCalendar(*obj);
         *obj = NULL;
         if (__error__ == OTHER_ERROR) return DUP_PRODID;
-        return INV_CAL;
+        return prodId == NULL ? INV_CAL : INV_PRODID;
     }
     /* It's not a number, cannot be represented by a float */
     for (int i = 0; i < strlen(version[0]); i++) {
@@ -664,17 +655,17 @@ void trim (char ** string) {
     char * newString = NULL;
     if (str == NULL || !strlen(str)) return;
 
-    int beginIndex = 0, length = strlen(str), endIndex = length - 2, newLength, i, j;
+    int beginIndex = 0, length = strlen(str), endIndex = length - 1, newLength, i, j;
     while (beginIndex < length && isspace(str[beginIndex])) beginIndex++;
     while (endIndex >= beginIndex && isspace(str[endIndex])) endIndex--;
 
     newLength = endIndex - beginIndex + 1;
-    newString = (char *) calloc (1, newLength + 3 );
+    newString = (char *) calloc (1, newLength + 1 );
     for (i = beginIndex, j = 0; i <= endIndex; i++, j++) {
         newString[j] = str[i];
     }
-    newString[newLength + 0] = '\r';
-    newString[newLength + 1] = '\n';
+    // newString[newLength + 0] = '\r';
+    // newString[newLength + 1] = '\n';
     newString[newLength + 2] = '\0';
     /* Free the old string and re-assign it */
     if (str) free(str);
@@ -738,6 +729,7 @@ char * getToken ( char * entireFile, int * index, ICalErrorCode * errorCode) {
         }
     }
     *errorCode = INV_FILE;
+    
     #if DEBUG
         printf("Was not able to tokenize string, for unknown reason.\n");
     #endif
@@ -795,7 +787,16 @@ char ** readFile ( char * fileName, int * numLines, ICalErrorCode * errorCode ) 
         char * token = getToken(entireFile, &index, errorCode);
         /* -1 means that something was bad */
         if (token == NULL && index != -1) break;
+        if (*errorCode == INV_FILE) {
+            if (token) free(token);
+            if (entireFile) free(entireFile);
+            for (int j = 0; j < numTokens; j++) free(returnFile[j]);
+            if (entireFile) free(returnFile);
+            return NULL;
+        }
+
         tokenSize = strlen(token);
+
 
         if (index == -1 || tokenSize == 0) {
             #if DEBUG
@@ -1070,6 +1071,10 @@ ICalErrorCode checkFormatting (char ** entire_file, int numLines ) {
         } else if (entire_file[i][0] != ' ' && entire_file[i][0] != '\t' && entire_file[i][0] != ';') {
             int lineLength = strlen(entire_file[i]);
             int colons = 0;
+            if (toupper(entire_file[i][0]) == 'B' && toupper(entire_file[i][1]) == 'E' && toupper(entire_file[i][2]) == 'G' && toupper(entire_file[i][3]) == 'I' && toupper(entire_file[i][4]) == 'N' && toupper(entire_file[i][5]) == ':')
+                return INV_CAL;
+            if (toupper(entire_file[i][0]) == 'E' && toupper(entire_file[i][1]) == 'N' && toupper(entire_file[i][2]) == 'D' && entire_file[i][3] == ':')
+                return INV_CAL;
             for (int j = 1; j < lineLength; j++)
                 colons += (entire_file[i][j] == ':' || entire_file[i][j] == ';');
             if (!colons) {
@@ -1359,7 +1364,7 @@ int validateStamp ( char * check ) {
         }
     }
     /* We need to know where the date ends */
-    if (to != 1 && strlen(check) != 8) return 0;
+    if (to != 1) return 0;
    
     char month[2];
     char day[2];
@@ -1382,7 +1387,6 @@ int validateStamp ( char * check ) {
     }
     /* So at this point we know that the day is correct and that, 
     if the lenght is exactly 8 then the date is correct */
-    if (strlen(check) == 8) return 1;
 
     if (check[index] != 'T') return 0;
     index++;
@@ -1460,6 +1464,7 @@ Alarm * createAlarm(char ** file, int beginIndex, int endIndex) {
                 for (int j = 0; j < numProps; j++) free(pnames[j]);
                 free(pnames);
                 freeList(alarm->properties);
+                if (alarm->trigger) free(alarm->trigger);
                 free(alarm);
                 return NULL;
             }
@@ -1499,16 +1504,22 @@ Alarm * createAlarm(char ** file, int beginIndex, int endIndex) {
     if (ftrig == 1 && faction == 1) return alarm;
     
     freeList(alarm->properties);
+    if (alarm->trigger) free(alarm->trigger);
     free(alarm);
     return NULL;
 }
-/* Don't know about this one */
-/*
+/* Not sure whether or not this function is actually supposed to do anything */
+/* STUBS*/
 ICalErrorCode validateCalendar(const Calendar* obj) {
+    /*
     if (obj == NULL) return OTHER_ERROR;
     if (strlen(obj->prodID) == 0) return OTHER_ERROR;
     if (obj->events == NULL || obj->properties == NULL) return OTHER_ERROR;
-    if (obj->events.length == 0 || obj->properties.length == 0) return OTHER_ERROR;
+    if (obj->events->length == 0 || obj->properties->length == 0) return OTHER_ERROR;
+    return OK;
+    */
     return OK;
 }
-*/
+ICalErrorCode writeCalendar(char* fileName, const Calendar* obj){
+    return OK;
+}
