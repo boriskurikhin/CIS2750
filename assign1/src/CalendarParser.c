@@ -306,6 +306,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
             char ** DTSTAMP = NULL;
             int dtc = 0;
+            __error__ = OK;
             DTSTAMP = findProperty(entire_file, beginLine, numLines, "DTSTAMP:", true, &dtc, &__error__);
 
             /* OLD TZID check */
@@ -356,10 +357,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 free(newDate);
             } */
             if (DTSTAMP == NULL || !strlen(DTSTAMP[0])) {
-                if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
-                __error__ = OK;
-                DTSTAMP = findProperty(entire_file, beginLine, numLines, "DTSTAMP;", true, &dtc, &__error__);
-                if (DTSTAMP && strlen(DTSTAMP[0])) {
+                if (DTSTAMP) {
                     free(DTSTAMP[0]); free(DTSTAMP);
                     if (UID) { free(UID[0]); free(UID); }
                     for (int i = 0; i < numLines; i++) free(entire_file[i]);
@@ -371,7 +369,20 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                     *obj = NULL;
                     return __error__ == OTHER_ERROR ? INV_EVENT : INV_DT;
                 }
-                if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
+                __error__ = OK;
+                DTSTAMP = findProperty(entire_file, beginLine, numLines, "DTSTAMP;", true, &dtc, &__error__);
+                if (DTSTAMP) {
+                    free(DTSTAMP[0]); free(DTSTAMP);
+                    if (UID) { free(UID[0]); free(UID); }
+                    for (int i = 0; i < numLines; i++) free(entire_file[i]);
+                    free(entire_file);
+                    #if DEBUG
+                        printf("Error! The dtstamp property was not found!\n");
+                    #endif
+                    deleteCalendar(*obj);
+                    *obj = NULL;
+                    return __error__ == OTHER_ERROR ? INV_EVENT : INV_DT;
+                }
                 if (UID) { free(UID[0]); free(UID); }
                 for (int i = 0; i < numLines; i++) free(entire_file[i]);
                 free(entire_file);
@@ -380,7 +391,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 #endif
                 deleteCalendar(*obj);
                 *obj = NULL;
-                return __error__ == OTHER_ERROR ? INV_EVENT : INV_DT;
+                return INV_FILE;
             }
             /* If it was found, but it's invalid */
             if (!validateStamp(DTSTAMP[0])) {
@@ -452,11 +463,23 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 free(newDate);
             } */
             if (DTSTART == NULL || strlen(DTSTART[0]) == 0) {
+                /* if it exists */
                 if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
-                if (DTSTART) { free(DTSTART[0]); free(DTSTART); }
+                if (DTSTART) {
+                    free(DTSTART[0]); free(DTSTART);
+                    if (UID) { free(UID[0]); free(UID); }
+                    for (int i = 0; i < numLines; i++) free(entire_file[i]);
+                    free(entire_file);
+                    #if DEBUG
+                        printf("Error! START DATE/TIME property was not found.\n");
+                    #endif
+                    deleteCalendar(*obj);
+                    *obj = NULL;
+                    return INV_DT;
+                }
                 __error__ = OK;
                 DTSTART = findProperty(entire_file, beginLine, numLines, "DTSTART;", true, &dts, &__error__);
-                if (DTSTART && strlen(DTSTART[0])) {
+                if (DTSTART) {
                     free(DTSTART[0]); free(DTSTART);
                     if (UID) { free(UID[0]); free(UID); }
                     for (int i = 0; i < numLines; i++) free(entire_file[i]);
@@ -468,7 +491,6 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                     *obj = NULL;
                     return __error__ == OTHER_ERROR ? INV_FILE : INV_DT;
                 }
-                if (DTSTART) { free(DTSTART[0]); free(DTSTART); }
                 if (UID) { free(UID[0]); free(UID); }
                 for (int i = 0; i < numLines; i++) free(entire_file[i]);
                 free(entire_file);
@@ -477,7 +499,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 #endif
                 deleteCalendar(*obj);
                 *obj = NULL;
-                return __error__ == OTHER_ERROR ? INV_EVENT : INV_DT;
+                return INV_EVENT;
             }
             /* We found it, but it's not valid */
             if (!validateStamp(DTSTART[0])) {
