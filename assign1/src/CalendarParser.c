@@ -149,6 +149,10 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             printf("Error: Version is NULL\n");
         #endif
         /* Free memory */
+        if (version) {
+            free(version[0]);
+            free(version);
+        }
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
         deleteCalendar(*obj);
@@ -884,7 +888,8 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
                         for (int j = 0; j < size; j++) free(results[j]);
                         if (results) free(results);
                         *count = 0;
-                        *__error__ = OTHER_ERROR; /* duplicate */
+                        if (foundCount > 1)
+                            *__error__ = OTHER_ERROR; /* duplicate */
                         return NULL;
                     }
                 } else {
@@ -941,7 +946,8 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
                                 for (int j = 0; j < size; j++) free(results[j]);
                                 if (results) free(results);
                                 *count = 0;
-                                *__error__ = OTHER_ERROR;
+                                if (foundCount > 1)
+                                    *__error__ = OTHER_ERROR;
                                 return NULL;
                             }
                         } else {
@@ -970,11 +976,13 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
                                     foundCount++;
                                     /* If it's empty or something */
                                     if (result == NULL || strlen(result) == 0) {
-                                        if (result) free(result);
                                         for (int j = 0; j < size; j++) free(results[j]);
                                         if (results) free(results);
+                                        results = (char **) calloc ( 1, sizeof(char *));
+                                        results[0] = (char *) calloc ( 1, 1);
+                                        if (result) free(result);
                                         *count = 0;
-                                        return NULL;
+                                        return results;
                                     }
                                     /* Dynamic allocation */
                                     if (results == NULL) {
