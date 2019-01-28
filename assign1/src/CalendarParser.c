@@ -233,9 +233,13 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             __error__ = OK;
             char ** value = findProperty(entire_file, 0, numLines, calendarProperties[x], false, &count, &__error__);
             /* Then there is an error */
-            if (value == NULL) {
+            if (value == NULL || strlen(value[0]) == 0) {
                 for (int x = 0; x < N; x++) free(calendarProperties[x]);
                 free(calendarProperties);
+                if (value) {
+                    for (int ii = 0; ii < count; ii++) free(value[ii]);
+                    free(value);
+                }
                 for (int i = 0; i < numLines; i++) free(entire_file[i]);
                 free(entire_file);
                 deleteCalendar(*obj);
@@ -558,8 +562,14 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                     if (value == NULL) {
                         for (int x = 0; x < pCount; x++) free(eventProperties[x]);
                         free(eventProperties);
+                        if (value) {
+                            for (int ii = 0; ii < valueCount; ii++) free(value[ii]);
+                            free(value);
+                        }
                         for (int i = 0; i < numLines; i++) free(entire_file[i]);
                         free(entire_file);
+                        if (newEvent->properties) freeList(newEvent->properties);
+                        free(newEvent);
                         deleteCalendar(*obj);
                         *obj = NULL;
                         return INV_EVENT;
@@ -577,6 +587,8 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                             free(eventProperties);
                             for (int j = 0; j < numLines; j++) free(entire_file[j]);
                             free(entire_file);
+                            if (newEvent->properties) freeList(newEvent->properties);
+                            free(newEvent);
                             deleteCalendar(*obj);
                             *obj = NULL;
                             return INV_EVENT;
@@ -594,9 +606,9 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                     for (int vc = 0; vc < valueCount; vc++) free(value[vc]);
                     if (value) free(value); 
                 }
-                /* Free it after using it */
-                free(eventProperties[x]);
             }
+            /* Free */
+            for (int j = 0; j < pCount; j++) free(eventProperties[j]);
             free(eventProperties);
 
             /* Once we're done reading in the properties, we can begin reading in ALARMS */
@@ -915,11 +927,13 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
                         } else {
                             /* If it's empty or something */
                             if (result == NULL || strlen(result) == 0) {
-                                if (result) free(result);
                                 for (int j = 0; j < size; j++) free(results[j]);
                                 if (results) free(results);
-                                *count = 0;
-                                return NULL;
+                                results = (char **) calloc ( 1, sizeof(char *));
+                                results[0] = (char *) calloc ( 1, 1);
+                                if (result) free(result);
+                                *count = 1;
+                                return results;
                             }
                             foundCount++;
                             /* Dynamic allocation */
@@ -981,7 +995,7 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
                                         results = (char **) calloc ( 1, sizeof(char *));
                                         results[0] = (char *) calloc ( 1, 1);
                                         if (result) free(result);
-                                        *count = 0;
+                                        *count = 1;
                                         return results;
                                     }
                                     /* Dynamic allocation */
@@ -1485,8 +1499,12 @@ Alarm * createAlarm(char ** file, int beginIndex, int endIndex) {
         } else {
             /* Handle others */
             char ** pval = findProperty(file, beginIndex, endIndex, pnames[i], false, &nump, &errorCode);
-            if (pval == NULL) {
+            if (pval == NULL || !strlen(pval[0])) {
                 for (int j = 0; j < numProps; j++) free(pnames[j]);
+                if (pval) {
+                    for (int ii = 0; ii < nump; ii++) free(pval[ii]);
+                    free(pval);
+                }
                 free(pnames);
                 freeList(alarm->properties);
                 if (alarm->trigger) free(alarm->trigger);
