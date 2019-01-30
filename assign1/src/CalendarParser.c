@@ -3,14 +3,13 @@
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
-#define DEBUG 1
+#define DEBUG 0
 
 /* 
     Name: Boris Skurikhin
     ID: 1007339
 */
 
-Calendar * calendar;
 
 /* Function definitions */
 char ** readFile (char * , int *, ICalErrorCode *);
@@ -24,7 +23,7 @@ Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
 
 int main(int argv, char ** argc) {
     if (argv != 2) return 0;
-
+    Calendar * calendar;
     ICalErrorCode createCal = createCalendar(argc[1], &calendar);
     char * errorCode = printError(createCal);
     printf("Parse Status: %s\n\n\n", errorCode);
@@ -718,6 +717,8 @@ char * getToken ( char * entireFile, int * index, ICalErrorCode * errorCode) {
     if (*index == strlen(entireFile)) return NULL;
     if (index == NULL || *index < 0) return NULL;
 
+    int comment = (entireFile[*index] == ';' ? 1 : 0);
+
     /* Loop until the end */
     while (*index < strlen(entireFile)) {
         /* If we reached what seems to be a line ending */
@@ -732,6 +733,11 @@ char * getToken ( char * entireFile, int * index, ICalErrorCode * errorCode) {
                     /* Return output */
                     return line;
                 } else {
+                    /* Basically a \r without \n inside a comment is fine */
+                    if (comment) {
+                        *index += 1;
+                        return line;
+                    }
                     /* Random \r??? */
                     *errorCode = INV_FILE;
                     #if DEBUG
@@ -742,8 +748,23 @@ char * getToken ( char * entireFile, int * index, ICalErrorCode * errorCode) {
                     *index = -1;
                     return NULL;
                 }
+            } else {
+                /* At the very end of the file, but started with a comment */
+                if (comment) {
+                    *index += 1;
+                    return line;
+                }
+                *errorCode = INV_FILE;
+                if (line) free(line);
+                *index = -1;
+                return NULL;
             }
         } else if (entireFile[*index] == '\n') {
+            /* If it's a random \n, we should be good because it's inside the comment */
+            if (comment) {
+                *index += 1;
+                return line;
+            }
             *errorCode = INV_FILE;
             #if DEBUG
                 printf("Encountered a backslash-n. Exiting.\n");
@@ -1555,19 +1576,4 @@ Alarm * createAlarm(char ** file, int beginIndex, int endIndex) {
     if (alarm->trigger) free(alarm->trigger);
     free(alarm);
     return NULL;
-}
-/* Not sure whether or not this function is actually supposed to do anything */
-/* STUBS*/
-ICalErrorCode validateCalendar(const Calendar* obj) {
-    /*
-    if (obj == NULL) return OTHER_ERROR;
-    if (strlen(obj->prodID) == 0) return OTHER_ERROR;
-    if (obj->events == NULL || obj->properties == NULL) return OTHER_ERROR;
-    if (obj->events->length == 0 || obj->properties->length == 0) return OTHER_ERROR;
-    return OK;
-    */
-    return OK;
-}
-ICalErrorCode writeCalendar(char* fileName, const Calendar* obj){
-    return OK;
 }

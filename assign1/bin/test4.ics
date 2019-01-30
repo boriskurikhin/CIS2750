@@ -2,7 +2,7 @@ BEGIN:VCALENDAR
 VERSION:2.32123
 PRODID:-//hacksw/handcal//NONSGML v1.0//EN
 ;Hi!
-;I am a comment
+;this is a comment
 BEGIN:VEVENT
 UID:another one
 TEST: abcdef
