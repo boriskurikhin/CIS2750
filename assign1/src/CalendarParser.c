@@ -785,6 +785,9 @@ char * getToken ( char * entireFile, int * index, ICalErrorCode * errorCode) {
             /* Should be good */
         }
     }
+    if (comment) {
+        return line;
+    }
     *errorCode = INV_FILE;
     
     #if DEBUG
