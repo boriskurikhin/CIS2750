@@ -4,13 +4,10 @@
 #include <strings.h>
 #include <limits.h>
 #define DEBUG 0
-
 /* 
     Name: Boris Skurikhin
     ID: 1007339
 */
-
-
 /* Function definitions */
 char ** readFile (char * , int *, ICalErrorCode *);
 char ** findProperty(char ** file, int beginIndex, int endIndex, char * propertyName, bool once, int * count, ICalErrorCode *);
@@ -685,6 +682,7 @@ void deleteCalendar(Calendar * obj) {
     if (obj->properties) freeList( obj->properties );
     if (obj->events) freeList( obj->events );
     free ( obj );
+    obj = NULL;
 }
 /* Assumes everything ends with \r\n */
 void trim (char ** string) {
@@ -856,7 +854,6 @@ char ** readFile ( char * fileName, int * numLines, ICalErrorCode * errorCode ) 
 
         tokenSize = strlen(token);
 
-
         if (index == -1 || tokenSize == 0) {
             #if DEBUG
                 printf("Error: tokenizer returned: (index: %d, tokenSize: %d)\n", index, tokenSize);
@@ -876,6 +873,12 @@ char ** readFile ( char * fileName, int * numLines, ICalErrorCode * errorCode ) 
                 printf("Successfully freed all memory!\n");
             #endif
             return NULL;
+        }
+
+        /* Ignore comment */
+        if (token[0] == ';') {
+            free(token);
+            continue;
         }
 
         *errorCode = OK;
@@ -1301,12 +1304,14 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
 /* <-----HELPER FUNCTIONS------> */
 /* EVENTS */
 void deleteEvent(void* toBeDeleted) {
+    if (toBeDeleted == NULL) return;
     Event * e = (Event *) toBeDeleted;
     if (e->properties) freeList(e->properties);
     if (e->alarms) freeList(e->alarms);
     free(e);
 }
 void deleteAlarm(void* toBeDeleted) {
+    if (toBeDeleted == NULL) return;
     Alarm * a = (Alarm *) toBeDeleted;
     free(a->trigger);
     if (a->properties) freeList(a->properties);
@@ -1367,6 +1372,7 @@ char* printEvent(void* toBePrinted) {
     return result;
 }
 char* printAlarm(void* toBePrinted) {
+    if (toBePrinted == NULL) return NULL;
     Alarm * a = (Alarm *) toBePrinted;
     char * output = (char *) calloc ( 1, 16);
     strcpy(output, "\t=BEGIN ALARM=\n");
@@ -1390,6 +1396,7 @@ char* printAlarm(void* toBePrinted) {
 }
 /* PROPERTIES */
 void deleteProperty(void* toBeDeleted) {
+    if (toBeDeleted == NULL) return;
     Property * p = (Property *) toBeDeleted;
     /* We don't have to free the flexible array */
     free(p);
