@@ -7,18 +7,21 @@
 /* 
     Name: Boris Skurikhin
     ID: 1007339
+    CIS*2750 - Assignment 1
 */
 /* Function definitions */
 char ** readFile (char * , int *, ICalErrorCode *);
 char ** findProperty(char ** file, int beginIndex, int endIndex, char * propertyName, bool once, int * count, ICalErrorCode *);
 char * getToken ( char * entireFile, int * index, ICalErrorCode *);
 void trim (char ** );
-ICalErrorCode checkFormatting( char ** entireFile, int numLines);
+ICalErrorCode checkFormatting( char ** entireFile, int numLines, int ignoreCalendar);
 char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * numElements, int * errors);
 int validateStamp ( char * check );
 Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
 
-int main(int argv, char ** argc) {
+/* No main method */
+#if DEBUG
+    int main(int argv, char ** argc) {
     if (argv != 2) return 0;
     Calendar * calendar;
     ICalErrorCode createCal = createCalendar(argc[1], &calendar);
@@ -42,7 +45,9 @@ int main(int argv, char ** argc) {
     deleteCalendar(calendar);
 
     return 0;
-}
+    }
+#endif
+
 char* printError(ICalErrorCode err) {
     char * result = (char *) calloc ( 1, 500);
     switch ( err ) {
@@ -113,6 +118,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     /* Does not begin or end properly */
     if (strcasecmp(entire_file[0], "BEGIN:VCALENDAR\r\n") || strcasecmp(entire_file[numLines - 1], "END:VCALENDAR\r\n")) {
         #if DEBUG
+            printf("The beginning line is: %s\nThe end is %s", entire_file[0], entire_file[numLines - 1]);
             printf("The file doesn't follow the correct start/end protocol. Exiting.\n");
         #endif
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
@@ -122,7 +128,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     }
 
     /* Validates the formatting of the file */
-    ICalErrorCode formatCheck = checkFormatting(entire_file, numLines);
+    ICalErrorCode formatCheck = checkFormatting(entire_file, numLines, 0);
     if ( formatCheck != OK ) {
         #if DEBUG
             printf("It seems that the layout of the file events & alarms is incorrect\n");
@@ -846,9 +852,34 @@ char ** readFile ( char * fileName, int * numLines, ICalErrorCode * errorCode ) 
     while ( 1 ) {
         char * token = getToken(entireFile, &index, errorCode);
         /* -1 means that something was bad */
-        if (token == NULL && index != -1) break;
+
+        if (token == NULL && index != -1) {
+            if (!strcasecmp(returnFile[numTokens - 1], "END:VCALENDAR\r\n")) {
+                if (token) free(token);
+                break;
+            } else {
+                /* This is an empty line */
+                #if DEBUG
+                    printf("Invalid file token has been called\n");
+                #endif
+                if (returnFile == NULL) {
+                    returnFile = calloc(1, sizeof(char *) );
+                } else {
+                    returnFile = realloc(returnFile, sizeof(char *) * (numTokens + 1));
+                }
+                returnFile[numTokens] = (char *) calloc(1, 3);
+                strcpy(returnFile[numTokens++], "\r\n");
+                *errorCode = checkFormatting(returnFile, numTokens, 1);
+                if (entireFile) free(entireFile);
+                if (returnFile) {
+                    for (int i = 0; i < numTokens; i++) free ( returnFile[i] );
+                    free(returnFile);
+                }
+                return NULL;
+            }
+            /* Basically it looks like an empty line */
+        }
         if (*errorCode == INV_FILE) {
-            if (token) free(token);
             if (entireFile) free(entireFile);
             for (int j = 0; j < numTokens; j++) free(returnFile[j]);
             if (entireFile) free(returnFile);
@@ -877,13 +908,12 @@ char ** readFile ( char * fileName, int * numLines, ICalErrorCode * errorCode ) 
             #endif
             return NULL;
         }
-
+        /* printf("The token is (%s)\n", token); */
         /* Ignore comment */
         if (token[0] == ';') {
             free(token);
             continue;
         }
-
         *errorCode = OK;
 
         char * line = NULL;
@@ -908,7 +938,6 @@ char ** readFile ( char * fileName, int * numLines, ICalErrorCode * errorCode ) 
         /* Add the \0 to indicate line ending */
         returnFile[numTokens][strlen(returnFile[numTokens])] = '\0';
         numTokens++;
-
     }
     /* Free memory & close File */
     *errorCode = OK;
@@ -1095,22 +1124,28 @@ char ** findProperty(char ** file, int beginIndex, int endIndex, char * property
     return NULL;
 }
 /* Verifies that all alarms & events are distributed correctly */
-ICalErrorCode checkFormatting (char ** entire_file, int numLines ) {
+ICalErrorCode checkFormatting (char ** entire_file, int numLines, int ignoreCalendar ) {
     if (numLines < 2) return INV_FILE;
-    
+
+    /* This is a bit of a work-around, but if we have an empty line we need to check where it's messing up */
+    /* This is why we have this */
     if (strcasecmp(entire_file[0], "BEGIN:VCALENDAR\r\n")) {
         return INV_CAL;
     }
-    if (strcasecmp(entire_file[numLines - 1], "END:VCALENDAR\r\n")) {
-        return INV_CAL;
+
+    if (!ignoreCalendar) {
+        if (strcasecmp(entire_file[numLines - 1], "END:VCALENDAR\r\n")) {
+            return INV_CAL;
+        }
     }
+
 
     int isEventOpen = 0;
     int isAlarmOpen = 0;
     int numEventsOpened = 0, numEventsClosed = 0;
     int numAlarmsOpened = 0, numAlarmsClosed = 0;
 
-    for (int i = 1; i < numLines - 1; i++) {
+    for (int i = 1; i < (ignoreCalendar ? numLines : numLines - 1); i++) {
         if (strcasecmp(entire_file[i], "BEGIN:VEVENT\r\n") == 0) {
             if (isEventOpen) return INV_EVENT; /* There's an open event */
             if (isAlarmOpen) return INV_ALARM; /* There's an open alarm */
@@ -1141,6 +1176,11 @@ ICalErrorCode checkFormatting (char ** entire_file, int numLines ) {
             numAlarmsClosed++;
         } else if (entire_file[i][0] != ' ' && entire_file[i][0] != '\t' && entire_file[i][0] != ';') {
             int lineLength = strlen(entire_file[i]);
+            if (lineLength <= 2) {
+                if (isAlarmOpen) return INV_ALARM;
+                if (isEventOpen) return INV_EVENT;
+                return INV_CAL;
+            }
             int colons = 0;
             if (toupper(entire_file[i][0]) == 'B' && toupper(entire_file[i][1]) == 'E' && toupper(entire_file[i][2]) == 'G' && toupper(entire_file[i][3]) == 'I' && toupper(entire_file[i][4]) == 'N' && toupper(entire_file[i][5]) == ':')
                 return INV_CAL;

@@ -5,6 +5,7 @@
     Name: Boris Skurikhin
     ID: 1007339
 	Notice: 85% of this code was not written by me.
+	CIS*2750 - Assignment 1 & 2
 */
 
 /** Function to initialize the list metadata head to the appropriate function pointers. Allocates memory to the struct.
