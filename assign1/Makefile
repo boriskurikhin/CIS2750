@@ -16,3 +16,14 @@ parser: src/CalendarParser.c
 clean:
 	rm bin/*.o
 	rm bin/*.so
+
+#old makefile
+#all: list parser
+
+#list: src/LinkedListAPI.c
+#	$(CC) $(CFLAGS) -g src/LinkedListAPI.c -c -o bin/list.o
+#parser: src/CalendarParser.c bin/list.o
+#	$(CC) $(CFLAGS) -g src/CalendarParser.c bin/list.o -o bin/parser.out
+#clean:
+#	rm bin/parser.out
+#	rm bin/list.out

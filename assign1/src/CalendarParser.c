@@ -19,9 +19,9 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
 int validateStamp ( char * check );
 Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
 
-/* No main method */
-#if DEBUG
-    int main(int argv, char ** argc) {
+
+
+int main(int argv, char ** argc) {
     if (argv != 2) return 0;
     Calendar * calendar;
     ICalErrorCode createCal = createCalendar(argc[1], &calendar);
@@ -45,8 +45,8 @@ Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
     deleteCalendar(calendar);
 
     return 0;
-    }
-#endif
+}
+
 
 char* printError(ICalErrorCode err) {
     char * result = (char *) calloc ( 1, 500);
@@ -1377,25 +1377,19 @@ char* printEvent(void* toBePrinted) {
     strcat(result, event->UID);
     result = (char *) realloc (result, strlen(result) + 12);
     strcat(result, "\n\tDTSTAMP->");
-    result = (char *) realloc (result, strlen(result) + strlen(event->creationDateTime.date) + strlen(event->creationDateTime.time) + 1);
-    strcat(result, event->creationDateTime.date);
-    if (strlen(event->creationDateTime.time))
-        strcat(result, event->creationDateTime.time);
-    if (event->creationDateTime.UTC) {
-        result = (char *) realloc (result, strlen(result) + 6);
-        strcat(result, "(UTC)");
-    }
-    result = (char *) realloc(result, strlen(result) + strlen(event->startDateTime.date) + 12);
+    
+    char * dt_stamp = printDate(&event->creationDateTime);
+    char * dt_start = printDate(&event->startDateTime);
+
+    result = (char *) realloc (result, strlen(result) + strlen(dt_stamp) + 1);
+    strcat(result, dt_stamp);
+    free(dt_stamp);
+
+    result = (char *) realloc(result, strlen(result) + strlen(dt_start) + 11);
     strcat(result, "\n\tDTSTART->");
-    strcat(result, event->startDateTime.date);
-    if (strlen(event->startDateTime.time)) {
-        result = (char *) realloc (result, strlen(result) + strlen(event->startDateTime.time) + 1);
-        strcat(result, event->startDateTime.time);
-    }
-    if (event->startDateTime.UTC) {
-        result = (char *) realloc (result, strlen(result) + 6);
-        strcat(result, "(UTC)");
-    }
+    strcat(result, dt_start);
+    free(dt_start);
+
     char * otherProps = NULL;
     otherProps = toString(event->properties);
     result = (char *) realloc (result, strlen(result) + strlen(otherProps) + 1);
@@ -1626,4 +1620,20 @@ Alarm * createAlarm(char ** file, int beginIndex, int endIndex) {
     if (alarm->trigger) free(alarm->trigger);
     free(alarm);
     return NULL;
+}
+
+void deleteDate(void* toBeDeleted) { return; }
+
+int compareDates(const void* first, const void* second) { return 0; }
+
+char* printDate(void* toBePrinted) {
+    if (toBePrinted == NULL) return NULL;
+    /* Check */
+    DateTime * date = (DateTime *) toBePrinted;
+    char * output = (char *) calloc(1, strlen(date->date) + strlen(date->time) + 1 + 10);
+    strcpy(output, date->date);
+    strcat(output, ":");
+    strcat(output, date->time);
+    if (date->UTC) strcat(output, "(UTC)");
+    return output;
 }
