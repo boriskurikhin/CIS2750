@@ -19,35 +19,6 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
 int validateStamp ( char * check );
 Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
 
-
-
-int main(int argv, char ** argc) {
-    if (argv != 2) return 0;
-    Calendar * calendar;
-    ICalErrorCode createCal = createCalendar(argc[1], &calendar);
-    char * errorCode = printError(createCal);
-    printf("Parse Status: %s\n\n\n", errorCode);
-    if (strcmp(errorCode, "OK")) {
-        free(errorCode);
-        return 0;
-    }
-    char * output = printCalendar(calendar);
-    if (output) {
-        printf("%s", output);
-    }
-    #if DEBUG
-        FILE * out = fopen("output.txt", "w");
-        fprintf(out, "%s", output);
-        fclose(out);
-    #endif
-    free(output);
-    free(errorCode);
-    deleteCalendar(calendar);
-
-    return 0;
-}
-
-
 char* printError(ICalErrorCode err) {
     char * result = (char *) calloc ( 1, 500);
     switch ( err ) {
@@ -158,7 +129,6 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
         deleteCalendar(*obj);
-        *obj = NULL;
         
         if (__error__ == OTHER_ERROR) return DUP_VER;
 
@@ -198,7 +168,6 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
         deleteCalendar(*obj);
-        *obj = NULL;
         return INV_VER;
     }
     /* Write the version & production id */
@@ -220,7 +189,6 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         for (int i = 0; i < numLines; i++) free(entire_file[i]);
         free(entire_file);
         deleteCalendar(*obj);
-        *obj = NULL;
         return INV_CAL;
     }
 
@@ -245,7 +213,6 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 for (int i = 0; i < numLines; i++) free(entire_file[i]);
                 free(entire_file);
                 deleteCalendar(*obj);
-                *obj = NULL;
                 return INV_CAL;
             }
             for (int c = 0; c < count; c++) {
@@ -302,7 +269,6 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                     printf("Error! Some event is missing a UID\n");
                 #endif
                 deleteCalendar(*obj);
-                *obj = NULL;
                 return INV_EVENT;
             }
 
@@ -1621,7 +1587,6 @@ Alarm * createAlarm(char ** file, int beginIndex, int endIndex) {
     free(alarm);
     return NULL;
 }
-
 void deleteDate(void* toBeDeleted) { return; }
 
 int compareDates(const void* first, const void* second) { return 0; }
@@ -1636,4 +1601,11 @@ char* printDate(void* toBePrinted) {
     strcat(output, date->time);
     if (date->UTC) strcat(output, "(UTC)");
     return output;
+}
+ICalErrorCode writeCalendar(char* fileName, const Calendar* obj){
+    return OK;
+}
+
+ICalErrorCode validateCalendar(const Calendar* obj) {
+    return OK;
 }
