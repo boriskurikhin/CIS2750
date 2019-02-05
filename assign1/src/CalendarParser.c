@@ -18,6 +18,33 @@ ICalErrorCode checkFormatting( char ** entireFile, int numLines, int ignoreCalen
 char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * numElements, int * errors);
 int validateStamp ( char * check );
 Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
+char ** unfold (char ** file, int numLines, int * setLines );
+
+int main(int argv, char ** argc) {
+    if (argv != 2) return 0;
+    Calendar * calendar;
+    ICalErrorCode createCal = createCalendar(argc[1], &calendar);
+    char * errorCode = printError(createCal);
+    printf("Parse Status: %s\n\n\n", errorCode);
+    if (strcmp(errorCode, "OK")) {
+        free(errorCode);
+        return 0;
+    }
+    char * output = printCalendar(calendar);
+    if (output) {
+        printf("%s", output);
+    }
+    #if DEBUG
+        FILE * out = fopen("output.txt", "w");
+        fprintf(out, "%s", output);
+        fclose(out);
+    #endif
+    free(output);
+    free(errorCode);
+    deleteCalendar(calendar);
+
+    return 0;
+}
 
 char* printError(ICalErrorCode err) {
     char * result = (char *) calloc ( 1, 500);
@@ -55,11 +82,11 @@ char* printError(ICalErrorCode err) {
         case WRITE_ERROR:
             strcpy(result, "WRITE_ERROR");
         break;
-        default:
-            strcpy(result, "OTHER_ERROR");
+        default: strcpy(result, "OTHER_ERROR");
     }
     return result;
 }
+
 ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     int numLines = 0, correctVersion = 1, fnLen = 0;
     /* If the filename is null, or the string is empty */
@@ -87,6 +114,19 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
 
     if (entire_file == NULL) return __error__;
     /* Does not begin or end properly */
+
+    int temp = numLines;
+    numLines = 0;
+
+    char ** file = unfold(entire_file, temp, &numLines);
+
+    /* Free up the old format */    
+    for (int kk = 0; kk < temp; kk++) free(entire_file[kk]);
+    free(entire_file);
+
+    /* Set it back up */
+    entire_file = file;
+
     if (strcasecmp(entire_file[0], "BEGIN:VCALENDAR\r\n") || strcasecmp(entire_file[numLines - 1], "END:VCALENDAR\r\n")) {
         #if DEBUG
             printf("The beginning line is: %s\nThe end is %s", entire_file[0], entire_file[numLines - 1]);
@@ -97,7 +137,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         /* Free each array, and then free the whole thing itself */
         return INV_CAL;
     }
-
+    
     /* Validates the formatting of the file */
     ICalErrorCode formatCheck = checkFormatting(entire_file, numLines, 0);
     if ( formatCheck != OK ) {
@@ -324,6 +364,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 strcpy(DTSTAMP[0], newDate);
                 free(newDate);
             } */
+
             if (DTSTAMP == NULL || !strlen(DTSTAMP[0])) {
                 if (DTSTAMP) {
                     free(DTSTAMP[0]); free(DTSTAMP);
@@ -430,6 +471,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 strcpy(DTSTART[0], newDate);
                 free(newDate);
             } */
+            
             if (DTSTART == NULL || strlen(DTSTART[0]) == 0) {
                 /* if it exists */
                 if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
@@ -820,7 +862,15 @@ char ** readFile ( char * fileName, int * numLines, ICalErrorCode * errorCode ) 
         /* -1 means that something was bad */
 
         if (token == NULL && index != -1) {
-            if (!strcasecmp(returnFile[numTokens - 1], "END:VCALENDAR\r\n")) {
+            if (numTokens == 0) {
+                *errorCode = INV_CAL;
+                if (entireFile) free(entireFile);
+                if (returnFile) {
+                    for (int i = 0; i < numTokens; i++) free ( returnFile[i] );
+                    free(returnFile);
+                }
+                return NULL;
+            } else if (numTokens > 0 && !strcasecmp(returnFile[numTokens - 1], "END:VCALENDAR\r\n")) {
                 if (token) free(token);
                 break;
             } else {
@@ -1105,7 +1155,6 @@ ICalErrorCode checkFormatting (char ** entire_file, int numLines, int ignoreCale
         }
     }
 
-
     int isEventOpen = 0;
     int isAlarmOpen = 0;
     int numEventsOpened = 0, numEventsClosed = 0;
@@ -1147,14 +1196,23 @@ ICalErrorCode checkFormatting (char ** entire_file, int numLines, int ignoreCale
                 if (isEventOpen) return INV_EVENT;
                 return INV_CAL;
             }
-            int colons = 0;
-            if (toupper(entire_file[i][0]) == 'B' && toupper(entire_file[i][1]) == 'E' && toupper(entire_file[i][2]) == 'G' && toupper(entire_file[i][3]) == 'I' && toupper(entire_file[i][4]) == 'N' && toupper(entire_file[i][5]) == ':')
+            if (toupper(entire_file[i][0]) == 'B' && toupper(entire_file[i][1]) == 'E' && toupper(entire_file[i][2]) == 'G' && toupper(entire_file[i][3]) == 'I' && toupper(entire_file[i][4]) == 'N' && toupper(entire_file[i][5]) == ':') {
+                if (isAlarmOpen) return INV_ALARM;
+                if (isEventOpen) return INV_EVENT;
                 return INV_CAL;
-            if (toupper(entire_file[i][0]) == 'E' && toupper(entire_file[i][1]) == 'N' && toupper(entire_file[i][2]) == 'D' && entire_file[i][3] == ':')
+            }
+            if (toupper(entire_file[i][0]) == 'E' && toupper(entire_file[i][1]) == 'N' && toupper(entire_file[i][2]) == 'D' && entire_file[i][3] == ':'){
+                if (isAlarmOpen) return INV_ALARM;
+                if (isEventOpen) return INV_EVENT;
                 return INV_CAL;
-            for (int j = 1; j < lineLength; j++)
-                colons += (entire_file[i][j] == ':' || entire_file[i][j] == ';');
-            if (!colons) {
+            }
+            int hasColon = 0, insideQuotes = 0;
+            for (int j = 1; j < lineLength; j++) {
+                if (entire_file[i][j] == '"') insideQuotes ^= 1;
+                if (!insideQuotes && entire_file[i][j] == ':') hasColon++;
+            }
+            /* It's folded */
+            if (!hasColon) {
                 if (isAlarmOpen) return INV_ALARM;
                 if (isEventOpen) return INV_EVENT;
                 return INV_CAL;
@@ -1351,7 +1409,7 @@ char* printEvent(void* toBePrinted) {
     strcat(result, dt_stamp);
     free(dt_stamp);
 
-    result = (char *) realloc(result, strlen(result) + strlen(dt_start) + 11);
+    result = (char *) realloc(result, strlen(result) + strlen(dt_start) + 12);
     strcat(result, "\n\tDTSTART->");
     strcat(result, dt_start);
     free(dt_start);
@@ -1602,10 +1660,55 @@ char* printDate(void* toBePrinted) {
     if (date->UTC) strcat(output, "(UTC)");
     return output;
 }
+
 ICalErrorCode writeCalendar(char* fileName, const Calendar* obj){
     return OK;
 }
 
 ICalErrorCode validateCalendar(const Calendar* obj) {
     return OK;
+}
+/* unfolds */
+char ** unfold (char ** file, int numLines, int * setLines ) {
+    char ** result = NULL;
+    int newLines = 0;
+
+    for (int i = 0; i < numLines; i++) {
+        int startIndex = 1;
+        
+        if (file[i][0] != ' ') {
+            /* Allocate more space */
+            if (result == NULL) result = (char **) calloc(1, sizeof(char *));
+            else result = (char **) realloc(result, sizeof(char *) * (newLines + 1));
+            /* Allocate a /0 */
+            result[newLines] = (char *) calloc(1, 10);
+            result[newLines][0] = '\0';
+            newLines++;
+            startIndex--;
+        }
+
+        /* Get length of current folded line */
+        int len = strlen(file[i]) - 2;
+        /* Allocate some temp string */
+        char * line = (char *) calloc ( 1, len + startIndex + 1);
+        /* Write temp string */
+        for (int j = startIndex; j < len; j++)
+            line[j - startIndex] = file[i][j];
+        strcat(line, "\0");
+        /* Reallocate some space in the array */
+        if (result[newLines - 1] == NULL) result[newLines - 1] = (char *) calloc(1, strlen(line) + 1);
+        else result[newLines - 1] = (char *) realloc(result[newLines - 1], strlen(result[newLines - 1]) + strlen(line) + 1);
+        strcat(result[newLines - 1], line);
+        /* Free temp */
+        free(line);
+    }
+
+    /* Add line endings, I'm only doing this because my code was set up this way */
+    for (int i = 0; i < newLines; i++) {
+        result[i] = (char *) realloc(result[i], strlen(result[i]) + 3);
+        strcat(result[i], "\r\n");
+    }
+
+    *setLines = newLines;
+    return result;
 }
