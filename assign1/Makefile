@@ -8,22 +8,9 @@ CFLAGS = -Wall -g -ansi -pedantic -std=c11 -Iinclude/
 all: list parser
 
 list: src/LinkedListAPI.c
-	$(CC) -c -fPIC $(CFLAGS) src/LinkedListAPI.c -o bin/list.o
-	$(CC) -shared -o bin/liblist.so bin/list.o
-parser: src/CalendarParser.c
-	$(CC) -c -fPIC $(CFLAGS) src/CalendarParser.c -o bin/parser.o
-	$(CC) -shared -o bin/libcal.so bin/parser.o bin/list.o
+	$(CC) $(CFLAGS) -g src/LinkedListAPI.c -c -o bin/list.o
+parser: src/CalendarParser.c bin/list.o
+	$(CC) $(CFLAGS) -g src/CalendarParser.c bin/list.o -o bin/parser.out
 clean:
-	rm bin/*.o
-	rm bin/*.so
-
-#old makefile
-#all: list parser
-
-#list: src/LinkedListAPI.c
-#	$(CC) $(CFLAGS) -g src/LinkedListAPI.c -c -o bin/list.o
-#parser: src/CalendarParser.c bin/list.o
-#	$(CC) $(CFLAGS) -g src/CalendarParser.c bin/list.o -o bin/parser.out
-#clean:
-#	rm bin/parser.out
-#	rm bin/list.out
+	rm bin/parser.out
+	rm bin/list.out

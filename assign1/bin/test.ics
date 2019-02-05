@@ -2,14 +2,9 @@ BEGIN:VCALENDAR
 BEGIN:VEVENT
 UID:uid1@example.com
 DTSTAMP:19970714T170000Z
-ORGANIZER;CN=John Doe:MAILTO:john.doe@example.comaaaaaaaaaa
- aaaaaa
- aaaaaaaaaaa
- folding test
- ffolding test
-ORGANIZER;lets see what happens
+ORGANIZER:lets see what happens
 DTSTART:19970714T170000Z
-VERSION:19970715T035959Z
+VERSION:3
 SUMMARY:Bastille Day Party
 GEO:48.85299;2.36885
 BEGIN:VALARM
@@ -20,10 +15,10 @@ DESCRIPTION: this is a
  folded description!
 END:VALARM
 END:VEVENT
-SMTH;someth
+SMTH:someth
  ing
 SMTH:again
-SMTH;j
+SMTH:j
  o
  h
  n

@@ -137,7 +137,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
         /* Free each array, and then free the whole thing itself */
         return INV_CAL;
     }
-    
+
     /* Validates the formatting of the file */
     ICalErrorCode formatCheck = checkFormatting(entire_file, numLines, 0);
     if ( formatCheck != OK ) {
@@ -1681,7 +1681,7 @@ char ** unfold (char ** file, int numLines, int * setLines ) {
             if (result == NULL) result = (char **) calloc(1, sizeof(char *));
             else result = (char **) realloc(result, sizeof(char *) * (newLines + 1));
             /* Allocate a /0 */
-            result[newLines] = (char *) calloc(1, 10);
+            result[newLines] = (char *) calloc(1, 1);
             result[newLines][0] = '\0';
             newLines++;
             startIndex--;
@@ -1708,7 +1708,6 @@ char ** unfold (char ** file, int numLines, int * setLines ) {
         result[i] = (char *) realloc(result[i], strlen(result[i]) + 3);
         strcat(result[i], "\r\n");
     }
-
     *setLines = newLines;
     return result;
 }
