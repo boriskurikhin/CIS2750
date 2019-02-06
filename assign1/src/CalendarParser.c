@@ -20,7 +20,7 @@ int validateStamp ( char * check );
 Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
 char ** unfold (char ** file, int numLines, int * setLines );
 
-int main(int argv, char ** argc) {
+/* (int argv, char ** argc) {
     if (argv != 2) return 0;
     Calendar * calendar;
     ICalErrorCode createCal = createCalendar(argc[1], &calendar);
@@ -45,6 +45,7 @@ int main(int argv, char ** argc) {
 
     return 0;
 }
+*/
 
 char* printError(ICalErrorCode err) {
     char * result = (char *) calloc ( 1, 500);
@@ -92,6 +93,8 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     /* If the filename is null, or the string is empty */
     if (fileName == NULL || strcasecmp(fileName, "") == 0) return INV_FILE;
     /* If the calendar object doesn't point to anything */
+    /* createCalendar("file.ics", NULL) is invalid because it attempts to de-reference NULL */
+    /* I stand by that ^ */
     if (obj == NULL) return OTHER_ERROR;
 
     /* Check file extension */
@@ -1645,7 +1648,14 @@ Alarm * createAlarm(char ** file, int beginIndex, int endIndex) {
     free(alarm);
     return NULL;
 }
-void deleteDate(void* toBeDeleted) { return; }
+void deleteDate(void* toBeDeleted) { 
+    if (toBeDeleted == NULL) return;
+    
+    DateTime * date = (DateTime *) toBeDeleted;
+    strcpy(date->date, "\0");
+    strcpy(date->time, "\0");
+    date->UTC = false;
+}
 
 int compareDates(const void* first, const void* second) { return 0; }
 

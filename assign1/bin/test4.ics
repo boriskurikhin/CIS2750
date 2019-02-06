@@ -22,16 +22,6 @@ P
  :
  -
  //hacksw/handcal//NONSGML v1.0//EN
-V
- E
- R
- S
- I
- O
- N
- :
- 3
-;Hi!
 ;this is a comment
 BEGIN:VEVENT
 UID:another one
@@ -48,4 +38,14 @@ other;param=x:19970714T1700
 DTSTART:20190108T120000
 DTSTAMP:19970714T170000Z
 END:VEVENT
+V
+ E
+ R
+ S
+ I
+ O
+ N
+ :
+ 3
+;Hi!
 END:VCALENDAR
