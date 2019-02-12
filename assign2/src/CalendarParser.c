@@ -1629,9 +1629,10 @@ Alarm * createAlarm(char ** file, int beginIndex, int endIndex) {
             for (int j = 0; j < nump; j++) {
                 Property * prop = (Property *) calloc ( 1, sizeof(Property) + strlen(pval[j]) + 1);
 
-                strcpy(prop->propName, pnames[i]);
+                /* I forgot that property names STILL HAVE DELIMETER!!!! */
+                strncpy(prop->propName, pnames[i], strlen(pnames[i]) - 1);
+                /* arghhhghghg */
                 strcpy(prop->propDescr, pval[j]);
-
                 insertBack(alarm->properties, prop);
             }
             /* Free it, we don't need it anymore */
@@ -1765,6 +1766,7 @@ char * getProp (const char * prop) {
             break;
         }
     }
+    /* Allocate some space for \0 and the delimeter */
     char * result = (char *) calloc(1, strlen(prop) + 2 );
     result[0] = (hasParams ? ';' : ':');
     strcat(result, prop);
