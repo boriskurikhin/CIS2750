@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
-#define DEBUG 0
+#define DEBUG 1
 /* 
     Name: Boris Skurikhin
     ID: 1007339
@@ -41,6 +41,7 @@ int main (int argv, char ** argc) {
     #endif
     free(output);
     free(errorCode);
+    writeCalendar("testcalendar.ics", calendar);
     deleteCalendar(calendar);
 
     return 0;
@@ -1671,6 +1672,49 @@ char* printDate(void* toBePrinted) {
 }
 
 ICalErrorCode writeCalendar(char* fileName, const Calendar* obj){
+    /* Basic error checking */
+    if (fileName == NULL || strlen(fileName) == 0 || obj == NULL)
+        return WRITE_ERROR;
+    /* freopen is more fun */
+    FILE * fp = fopen(fileName, "w");
+    if (fp == NULL) return WRITE_ERROR;
+    fprintf(fp, "BEGIN:VCALENDAR\r\n");
+    /* Print the important properties */
+    fprintf(fp, "VERSION:%.1f\r\n", obj->version);
+    fprintf(fp, "PRODID:%s\r\n", obj->prodID);
+    /* We now gotta print out calendar properties */
+    ListIterator propertyIterator = createIterator(obj->properties);
+    Property * prop = nextElement(&propertyIterator);
+    while (prop != NULL) {
+        int l = strlen(prop->propDescr), quote = 0, hasParams = 0;
+        /* Check for param evidence */
+        for (int j = 0; j < l; j++) {
+            if (prop->propDescr[j] == '"') quote ^= 1;
+            if (prop->propDescr[j] == ':' && !quote) {
+                /* Basically if there's a colon -- not inside quotes */
+                /* This almost feels too basic lol */
+                hasParams = 1;
+                break;
+            }
+        }
+        fprintf(fp, "%s%c%s\r\n", prop->propName, hasParams ? ';' : ':', prop->propDescr);
+        prop = nextElement(&propertyIterator);
+    }
+    /* Done with calendar's properties */
+    ListIterator eventIterator = createIterator(obj->events);
+    Event * event = nextElement(&eventIterator);
+    while (event != NULL) {
+        fprintf(fp, "BEGIN:VEVENT\r\n");
+        /* We gotta print out the event's properties */
+        /* Now we can go through the alarms */
+
+        /* Now we're done with this event */
+        fprintf(fp, "END:VEVENT\r\n");
+        event = nextElement(&eventIterator);
+    }
+    fprintf(fp, "END:VCALENDAR\r\n");
+    /* We're donezo */
+    fclose(fp);
     return OK;
 }
 
