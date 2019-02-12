@@ -19,6 +19,7 @@ char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * n
 int validateStamp ( char * check );
 Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
 char ** unfold (char ** file, int numLines, int * setLines );
+char * getProp (const char * prop) ;
 
 int main (int argv, char ** argc) {
     if (argv != 2) return 0;
@@ -41,7 +42,7 @@ int main (int argv, char ** argc) {
     #endif
     free(output);
     free(errorCode);
-    writeCalendar("testcalendar.ics", calendar);
+    writeCalendar("writetest.ics", calendar);
     deleteCalendar(calendar);
 
     return 0;
@@ -1680,24 +1681,18 @@ ICalErrorCode writeCalendar(char* fileName, const Calendar* obj){
     if (fp == NULL) return WRITE_ERROR;
     fprintf(fp, "BEGIN:VCALENDAR\r\n");
     /* Print the important properties */
+    char * temp;
     fprintf(fp, "VERSION:%.1f\r\n", obj->version);
-    fprintf(fp, "PRODID:%s\r\n", obj->prodID);
+    temp = getProp(obj->prodID);
+    fprintf(fp, "PRODID%s\r\n", temp);
+    free(temp);
     /* We now gotta print out calendar properties */
     ListIterator propertyIterator = createIterator(obj->properties);
     Property * prop = nextElement(&propertyIterator);
     while (prop != NULL) {
-        int l = strlen(prop->propDescr), quote = 0, hasParams = 0;
-        /* Check for param evidence */
-        for (int j = 0; j < l; j++) {
-            if (prop->propDescr[j] == '"') quote ^= 1;
-            if (prop->propDescr[j] == ':' && !quote) {
-                /* Basically if there's a colon -- not inside quotes */
-                /* This almost feels too basic lol */
-                hasParams = 1;
-                break;
-            }
-        }
-        fprintf(fp, "%s%c%s\r\n", prop->propName, hasParams ? ';' : ':', prop->propDescr);
+        temp = getProp(prop->propDescr);
+        fprintf(fp, "%s%s\r\n", prop->propName, temp);
+        free(temp);
         prop = nextElement(&propertyIterator);
     }
     /* Done with calendar's properties */
@@ -1707,7 +1702,47 @@ ICalErrorCode writeCalendar(char* fileName, const Calendar* obj){
         fprintf(fp, "BEGIN:VEVENT\r\n");
         /* We gotta print out the event's properties */
         /* Now we can go through the alarms */
+        temp = getProp(event->UID);
+        fprintf(fp, "UID%s\r\n", temp);
+        free(temp);
 
+        fprintf(fp, "DTSTAMP:%sT%s%s\r\n", event->creationDateTime.date, event->creationDateTime.time, event->creationDateTime.UTC ? "Z" : "");
+        fprintf(fp, "DTSTART:%sT%s%s\r\n", event->startDateTime.date, event->startDateTime.time, event->startDateTime.UTC ? "Z" : "");
+        /* Done printing requied properties */
+        ListIterator ePropIterator = createIterator(event->properties);
+        prop = nextElement(&ePropIterator);
+        /* All the other properties */
+        while (prop != NULL) {
+            temp = getProp(prop->propDescr);
+            fprintf(fp, "%s%s\r\n", prop->propName, temp);
+            free(temp);
+            prop = nextElement(&ePropIterator);
+        }
+        /* Once we're done doing that, we can finally move onto alarms */
+        ListIterator alarms = createIterator(event->alarms);
+        Alarm * alarm = nextElement(&alarms);
+        /* Rip through alarms */
+        while (alarm != NULL) {
+            fprintf(fp, "BEGIN:VALARM\r\n");
+            temp = getProp(alarm->action);
+            fprintf(fp, "ACTION%s\r\n", temp);
+            free(temp);
+            temp = getProp(alarm->trigger);
+            fprintf(fp, "TRIGGER%s\r\n", temp);
+            free(temp);
+            /* Now that we're done with that, we can rip through the rest of its' properties */
+            ListIterator aProps = createIterator(alarm->properties);
+            prop = nextElement(&aProps);
+            while (prop != NULL) {
+                temp = getProp(prop->propDescr);
+                fprintf(fp, "%s%s\r\n", prop->propName, temp);
+                free(temp);
+                prop = nextElement(&aProps);
+            }
+            /* Donezo */
+            fprintf(fp, "END:VALARM\r\n");
+            alarm = nextElement(&alarms);
+        }
         /* Now we're done with this event */
         fprintf(fp, "END:VEVENT\r\n");
         event = nextElement(&eventIterator);
@@ -1716,6 +1751,24 @@ ICalErrorCode writeCalendar(char* fileName, const Calendar* obj){
     /* We're donezo */
     fclose(fp);
     return OK;
+}
+
+char * getProp (const char * prop) {
+    int l = strlen(prop), quote = 0, hasParams = 0;
+    /* Check for param evidence */
+    for (int j = 0; j < l; j++) {
+        if (prop[j] == '"') quote ^= 1;
+        if (prop[j] == ':' && !quote) {
+            /* Basically if there's a colon -- not inside quotes */
+            /* This almost feels too basic lol */
+            hasParams = 1;
+            break;
+        }
+    }
+    char * result = (char *) calloc(1, strlen(prop) + 2 );
+    result[0] = (hasParams ? ';' : ':');
+    strcat(result, prop);
+    return result; 
 }
 
 ICalErrorCode validateCalendar(const Calendar* obj) {
