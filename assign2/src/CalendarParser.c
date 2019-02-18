@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
-#define DEBUG 1
+#define DEBUG 0
 /* 
     Name: Boris Skurikhin
     ID: 1007339
@@ -241,7 +241,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
     /* Grab all calendar properties */
     for (int x = 0; x < N; x++) {
         /* We already checked those guys */
-        if (strcasecmp(calendarProperties[x], "PRODID:") && strcasecmp(calendarProperties[x], "VERSION:")) {
+        if (strcasecmp(calendarProperties[x], "PRODID:") && strcasecmp(calendarProperties[x], "VERSION:") && strcasecmp(calendarProperties[x], "PRODID;") && strcasecmp(calendarProperties[x], "VERSION;")) {
             int count = 0;
             /* All of these properties can have more than one value */
             __error__ = OK;
@@ -321,54 +321,6 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             __error__ = OK;
             DTSTAMP = findProperty(entire_file, beginLine, numLines, "DTSTAMP:", true, &dtc, &__error__);
 
-            /* OLD TZID check */
-            /*if (DTSTAMP == NULL || !strlen(DTSTAMP[0])) {
-                if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
-                DTSTAMP = findProperty(entire_file, beginLine, numLines, "DTSTAMP;", true, &dtc, &__error__);
-
-                if (DTSTAMP == NULL || !strlen(DTSTAMP[0])) {
-                    if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
-                    if (UID) { free(UID[0]); free(UID); }
-                    for (int i = 0; i < numLines; i++) free(entire_file[i]);
-                    free(entire_file);
-                    #if DEBUG
-                        printf("Error! Some event is missing a DTSTAMP or the DTSTAMP format is invalid..\n");
-                    #endif
-                    deleteCalendar(*obj);
-                    obj = NULL;
-                    return INV_EVENT;
-                }
-
-                int quote = 0, l = 0, colonIndex = -1;
-                // Find the index of the colon 
-                for (; l < strlen(DTSTAMP[0]); l++) {
-                    if (DTSTAMP[0][l] == '"') quote++;
-                    if (DTSTAMP[0][l] == ':' && quote == 2) {
-                        colonIndex = l;
-                        break;
-                    }
-                }
-                // The parameter was broken 
-                if (quote != 2 || colonIndex < 0) {
-                    if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
-                    if (UID) { free(UID[0]); free(UID); }
-                    for (int i = 0; i < numLines; i++) free(entire_file[i]);
-                    free(entire_file);
-                    #if DEBUG
-                        printf("Error! The time zone parameter is invalid.\n");
-                    #endif
-                    deleteCalendar(*obj);
-                    obj = NULL;
-                    return INV_DT;
-                }
-                // Essentially we just ignore the timezone parameter
-                char * newDate = (char *) calloc ( 1, strlen(DTSTAMP[0]) - colonIndex + 1);
-                for (int vi = colonIndex + 1, ii = 0; vi < strlen(DTSTAMP[0]); vi++, ii++)
-                    newDate[ii] = DTSTAMP[0][vi];
-                strcpy(DTSTAMP[0], newDate);
-                free(newDate);
-            } */
-
             if (DTSTAMP == NULL || !strlen(DTSTAMP[0])) {
                 if (DTSTAMP) {
                     free(DTSTAMP[0]); free(DTSTAMP);
@@ -404,7 +356,7 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
                 #endif
                 deleteCalendar(*obj);
                 *obj = NULL;
-                return INV_FILE;
+                return INV_EVENT;
             }
             /* If it was found, but it's invalid */
             if (!validateStamp(DTSTAMP[0])) {
@@ -424,57 +376,6 @@ ICalErrorCode createCalendar(char* fileName, Calendar** obj) {
             int dts = 0;
             __error__ = OK;
             DTSTART = findProperty(entire_file, beginLine, numLines, "DTSTART:", true, &dts, &__error__);
-            /* TZID check */
-            /*
-            if (DTSTART == NULL || !strlen(DTSTART[0])) {
-                if (DTSTART) { free(DTSTART[0]); free(DTSTART); }
-                dts = 0;
-                DTSTART = findProperty(entire_file, beginLine, numLines, "DTSTART;", true, &dts, &__error__);
-                // If it's still bad, off it
-                if (DTSTART == NULL || !strlen(DTSTART[0])) {
-                    if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
-                    if (UID) { free(UID[0]); free(UID); }
-                    for (int i = 0; i < numLines; i++) free(entire_file[i]);
-                    free(entire_file);
-                    #if DEBUG
-                        printf("Error! Some event is missing a DTSTART or the DTSTART format is invalid..\n");
-                    #endif
-                    deleteCalendar(*obj);
-                    obj = NULL;
-                    return INV_EVENT;
-                }
-                // Here we know that we have a timezone thing, and we need to extract it 
-                int quote = 0, l = 0, colonIndex = -1;
-                // Find the index of the colon 
-                for (; l < strlen(DTSTART[0]); l++) {
-                    if (DTSTART[0][l] == '"') quote++;
-                    if (DTSTART[0][l] == ':' && quote == 2) {
-                        colonIndex = l;
-                        break;
-                    }
-                }
-                // The parameter was broken 
-                if (quote != 2 || colonIndex < 0) {
-                    free(DTSTART[0]);
-                    free(DTSTART);
-                    if (DTSTAMP) { free(DTSTAMP[0]); free(DTSTAMP); }
-                    if (UID) { free(UID[0]); free(UID); }
-                    for (int i = 0; i < numLines; i++) free(entire_file[i]);
-                    free(entire_file);
-                    #if DEBUG
-                        printf("Error! The time zone parameter is invalid.\n");
-                    #endif
-                    deleteCalendar(*obj);
-                    obj = NULL;
-                    return INV_DT;
-                }
-                // Essentially we just ignore the timezone parameter 
-                char * newDate = (char *) calloc ( 1, strlen(DTSTART[0]) - colonIndex + 1);
-                for (int vi = colonIndex + 1, ii = 0; vi < strlen(DTSTART[0]); vi++, ii++)
-                    newDate[ii] = DTSTART[0][vi];
-                strcpy(DTSTART[0], newDate);
-                free(newDate);
-            } */
             
             if (DTSTART == NULL || strlen(DTSTART[0]) == 0) {
                 /* if it exists */
@@ -1200,7 +1101,7 @@ ICalErrorCode checkFormatting (char ** entire_file, int numLines, int ignoreCale
                 if (isEventOpen) return INV_EVENT;
                 return INV_CAL;
             }
-            if (toupper(entire_file[i][0]) == 'B' && toupper(entire_file[i][1]) == 'E' && toupper(entire_file[i][2]) == 'G' && toupper(entire_file[i][3]) == 'I' && toupper(entire_file[i][4]) == 'N' && toupper(entire_file[i][5]) == ':') {
+            if (toupper(entire_file[i][0]) == 'B' && toupper(entire_file[i][1]) == 'E' && toupper(entire_file[i][2]) == 'G' && toupper(entire_file[i][3]) == 'I' && toupper(entire_file[i][4]) == 'N' && (entire_file[i][5]) == ':') {
                 if (isAlarmOpen) return INV_ALARM;
                 if (isEventOpen) return INV_EVENT;
                 return INV_CAL;
@@ -1213,7 +1114,7 @@ ICalErrorCode checkFormatting (char ** entire_file, int numLines, int ignoreCale
             int hasColon = 0, insideQuotes = 0;
             for (int j = 1; j < lineLength; j++) {
                 if (entire_file[i][j] == '"') insideQuotes ^= 1;
-                if (!insideQuotes && entire_file[i][j] == ':') hasColon++;
+                if (!insideQuotes && (entire_file[i][j] == ';' || entire_file[i][j] == ':')) hasColon++;
             }
             /* It's folded */
             if (!hasColon) {
