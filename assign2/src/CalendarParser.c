@@ -43,6 +43,11 @@ int main (int argv, char ** argc) {
     free(output);
     free(errorCode);
     writeCalendar("writetest.ics", calendar);
+    
+    output = printError(validateCalendar(calendar));
+    printf("Status: %s\n", output);
+    free(output);
+    
     deleteCalendar(calendar);
 
     return 0;
@@ -1675,6 +1680,34 @@ char * getProp (const char * prop) {
 }
 
 ICalErrorCode validateCalendar(const Calendar* obj) {
+    /* If the object is NULL, we can just return invalid calendar */
+    if (obj == NULL) 
+        return INV_CAL;
+
+    /* If the prodID is empty */
+    if ( obj->prodID[0] == '\0' || !strlen(obj->prodID) )
+        return INV_CAL;
+
+    /* Either list is badly initialized (or events is empty) */
+    if (getLength(obj->events) <= 0 || getLength(obj->properties) < 0 ) 
+        return INV_CAL;
+
+    /* If some properties exist */
+    if (getLength(obj->properties)) {
+        ListIterator propertyIterator = createIterator(obj->properties);
+        Property * prop = nextElement(&propertyIterator);
+        
+        while (prop != NULL) {
+            /* Checking for null & empty strings */
+            if (strlen(prop->propName) == 0 || prop->propDescr == NULL || strlen(prop->propDescr) == 0)
+                return INV_CAL;
+            prop = nextElement(&propertyIterator);
+        }
+    }
+    
+    /* So, at this point we have checked the calendar object shell */
+
+    /* After all testing is done */
     return OK;
 }
 /* unfolds */
