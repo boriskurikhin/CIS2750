@@ -1755,24 +1755,76 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
         /* If the event has some properties, let's check them out */
         if (getLength(event->properties)) {
 
+            int hasEnd = 0;
+            int hasDuration = 0;
+
             ListIterator propertyIterator = createIterator(event->properties);
             Property * prop = nextElement(&propertyIterator);
         
+            /* Loop through some properties */
             while (prop != NULL) {
                 /* Checking for null & empty strings */
                 if (strlen(prop->propName) == 0 || prop->propDescr == NULL || strlen(prop->propDescr) == 0)
                     return INV_EVENT;
+                /* If we come across an end */
+                if (!strcasecmp(prop->propName, "DTEND")) {
+                    if (hasDuration) 
+                        return INV_EVENT;
+                    hasEnd = 1;
+                }
+                /* If we come across a duration */
+                if (!strcasecmp(prop->propName, "DURATION")) {
+                    if (hasEnd)
+                        return INV_EVENT;
+                    hasDuration = 1;
+                }
                 /* Duplicates */
                 if (!strcasecmp(prop->propName, "DTSTART") || !strcasecmp(prop->propName, "DTSTAMP") || !strcasecmp(prop->propName, "UID"))
                     return INV_EVENT;
                 prop = nextElement(&propertyIterator);
             }
-
         }
 
+        /* If there exist some alarms, loop through them and verify */
+        if (getLength(event->alarms)) {
+            ListIterator alarmIterator = createIterator(event->alarms);
+            Alarm * alarm = nextElement(&alarmIterator);
+            
+            while (alarm != NULL) {
+                /* Action is empty */
+                if (alarm->action[0] == '\0' || strlen(alarm->action) == 0) 
+                    return INV_ALARM;
+
+                /* Trigger is empty */
+                if (alarm->trigger == NULL || alarm->trigger[0] == '\0'|| strlen(alarm->trigger) == 0)
+                    return INV_ALARM;
+
+                /* If the alarm contains some properties */
+                if (getLength(alarm->properties)) {
+                    ListIterator a_propertyIterator = createIterator(alarm->properties);
+                    Property * a_prop = nextElement(&a_propertyIterator);
+        
+                    /* Loop through alarm properties */
+                    while (a_prop != NULL) {
+                        /* Checking for null & empty strings */
+                        if (strlen(a_prop->propName) == 0 || a_prop->propDescr == NULL || strlen(a_prop->propDescr) == 0)
+                            return INV_ALARM;
+                        /* Duplicates */
+                        if (!strcasecmp(a_prop->propName, "TRIGGER") || !strcasecmp(a_prop->propName, "ACTION"))
+                            return INV_ALARM;
+                        a_prop = nextElement(&a_propertyIterator);
+                    }
+                }
+                alarm = nextElement(&alarmIterator);
+            }
+        }
+        #if DEBUG
+            char * test = eventToJSON(event);
+            printf("EVENT JSON:%s\n", test);
+            free(test);
+        #endif
         event = nextElement(&eventIterator);
     }
-
     /* After all testing is done */
     return OK;
 }
@@ -1818,4 +1870,72 @@ char ** unfold (char ** file, int numLines, int * setLines ) {
     }
     *setLines = newLines;
     return result;
+}
+/* MODULE 3 */
+char* dtToJSON(DateTime prop) {
+    /* {"date":"","time":"","isUTC":} */
+    char * json = (char *) calloc(1, 30 + 9 + 7 + (prop.UTC ? 4 : 5) + 1);
+    json[0] = '\0';
+    /* We're done allocating */
+    strcpy(json, "{\"date\":\"");
+    strcat(json, prop.date);
+    strcat(json, "\",\"time\":\"");
+    strcat(json, prop.time);
+    strcat(json, "\",\"isUTC\":");
+    strcat(json, prop.UTC ? "true" : "false" );
+    strcat(json, "}");
+    /* Pheeww */
+    return json;
+}
+
+char* eventToJSON(const Event* event) {
+    /* {"startDT":DTval,"numProps":propVal,"numAlarms":almVal,"summary":"sumVal"} */
+    char * json = (char *) calloc(1, 12);
+    json[0] = '\0';
+    strcpy(json, "{\"startDT\":");
+    
+    /* Add start date to the event */
+    char * startDate = dtToJSON(event->startDateTime);
+    json = (char *) realloc(json, strlen(json) + strlen(startDate) + 1);
+    strcat(json, startDate);
+    free(startDate);
+    
+    /* Move on to counting props */
+    json = (char *) realloc(json, strlen(json) + 13);
+    strcat(json, ",\"numProps\":");
+    
+    char numProps[10] = "";
+    sprintf(numProps, "%d", 3 + getLength(event->properties));
+    json = (char *) realloc(json, strlen(json) + strlen(numProps) + 1);
+    strcat(json, numProps);
+
+    /* We will now proceed to count alarms */
+    json = (char *) realloc(json, strlen(json) + 14);
+    strcat(json, ",\"numAlarms\":");
+
+    char numAlarms[10] = "";
+    sprintf(numAlarms, "%d", getLength(event->alarms));
+    json = (char *) realloc(json, strlen(json) + strlen(numAlarms) + 1);
+    strcat(json, numAlarms);
+
+    json = (char *) realloc(json, strlen(json) + 15);
+    strcat(json, ",\"summary\":\"");
+
+    if (getLength(event->properties)) {
+        ListIterator propertyIterator = createIterator(event->properties);
+        Property * prop = nextElement(&propertyIterator);
+    
+        /* Loop through some properties */
+        while (prop != NULL) {
+            if (!strcasecmp(prop->propName, "SUMMARY")) {
+                json = (char *) realloc(json, strlen(json) + strlen(prop->propDescr) + 2 + 1);
+                strcat(json, prop->propDescr);
+                break;
+            }
+            prop = nextElement(&propertyIterator);
+        }
+    }
+
+    strcat(json, "\"}");
+    return json;   
 }

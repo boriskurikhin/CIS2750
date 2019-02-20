@@ -33,6 +33,5 @@ TRIGGER:reer
 END:VALARM
 CLASS:PUBLIC
 DTSTART:19970714T170000Z
-SUMMARY:Lorem ipsum dolor sit amet,consectetur adipiscing elit.
 END:VEVENT
 END:VCALENDAR
