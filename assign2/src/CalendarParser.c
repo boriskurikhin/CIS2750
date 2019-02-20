@@ -1701,11 +1701,77 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
             /* Checking for null & empty strings */
             if (strlen(prop->propName) == 0 || prop->propDescr == NULL || strlen(prop->propDescr) == 0)
                 return INV_CAL;
+            /* Duplicate required properties */
+            if (!strcasecmp(prop->propName, "PRODID") || !strcasecmp(prop->propName, "VERSION"))
+                return INV_CAL;
             prop = nextElement(&propertyIterator);
         }
     }
-    
     /* So, at this point we have checked the calendar object shell */
+    /* We can now start looking at events */
+
+    ListIterator eventIterator = createIterator(obj->events);
+    Event * event = nextElement(&eventIterator);
+
+    while (event != NULL) {
+        /* UID can't be empty */
+        if (event->UID[0] == '\0' || strlen(event->UID) == 0)
+            return INV_EVENT;
+        /* Either list is NULL, not empty */
+        if (getLength(event->properties) < 0 || getLength(event->alarms) < 0)
+            return INV_EVENT;
+       /* We can validate them using our function */
+        char * date_test = (char *) calloc(1, 9 + 7 + 3);
+        date_test[0] = '\0';
+        /* Testing creation date time */
+        strcpy(date_test, event->creationDateTime.date);
+        strcat(date_test, "T");
+        strcat(date_test, event->creationDateTime.time);
+        if (event->creationDateTime.UTC)
+            strcat(date_test, "Z");
+        if (!validateStamp(date_test)) {
+            free(date_test);
+            return INV_DT;
+        }
+        /* Now we can test -- start date time */
+        free(date_test);
+        date_test = (char *) calloc(1, 9 + 7 + 3);
+        date_test[0] = '\0';
+        strcpy(date_test, event->startDateTime.date);
+        strcat(date_test, "T");
+        strcat(date_test, event->startDateTime.time);
+        if (event->startDateTime.UTC)
+            strcat(date_test, "Z");
+        /* Test it up */
+        if (!validateStamp(date_test)) {
+            free(date_test);
+            return INV_DT;
+        }
+        /* Free our temporary variable */
+        free(date_test);
+        /* At this point we're done testing the required properties of the
+           event */
+
+        /* If the event has some properties, let's check them out */
+        if (getLength(event->properties)) {
+
+            ListIterator propertyIterator = createIterator(event->properties);
+            Property * prop = nextElement(&propertyIterator);
+        
+            while (prop != NULL) {
+                /* Checking for null & empty strings */
+                if (strlen(prop->propName) == 0 || prop->propDescr == NULL || strlen(prop->propDescr) == 0)
+                    return INV_EVENT;
+                /* Duplicates */
+                if (!strcasecmp(prop->propName, "DTSTART") || !strcasecmp(prop->propName, "DTSTAMP") || !strcasecmp(prop->propName, "UID"))
+                    return INV_EVENT;
+                prop = nextElement(&propertyIterator);
+            }
+
+        }
+
+        event = nextElement(&eventIterator);
+    }
 
     /* After all testing is done */
     return OK;

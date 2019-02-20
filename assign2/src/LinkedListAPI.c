@@ -292,6 +292,8 @@ char* toString(List * list){
  *@return on success: number of eleemnts in the list (0 or more).  on failure: -1 (e.g. list not initlized correctly)
  **/
 int getLength(List* list){
+	if (list == NULL) 
+		return -1;
 	return list->length;
 }
 
