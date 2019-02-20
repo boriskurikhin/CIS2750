@@ -1,6 +1,6 @@
 BEGIN:VCALENDAR
 VERSION:3.3
-PRODID:he""llo
+PRODID:"hello"
 ORGANIZER;whatever=";:;;yeet":test
 BEGIN:VEVENT
 UID:uid1@example.com

@@ -20,6 +20,7 @@ int validateStamp ( char * check );
 Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
 char ** unfold (char ** file, int numLines, int * setLines );
 char * getProp (const char * prop) ;
+char * escape (char * string ) ;
 
 int main (int argv, char ** argc) {
     if (argv != 2) return 0;
@@ -1825,9 +1826,11 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
         #endif
         event = nextElement(&eventIterator);
     }
+    #if DEBUG
     char * test = calendarToJSON(obj);
     printf("CAL JSON:%s\n", test);
     free(test);
+    #endif
     /* After all testing is done */
     return OK;
 }
@@ -1937,8 +1940,10 @@ char* eventToJSON(const Event* event) {
         /* Loop through some properties */
         while (prop != NULL) {
             if (!strcasecmp(prop->propName, "SUMMARY")) {
-                json = (char *) realloc(json, strlen(json) + strlen(prop->propDescr) + 2 + 1);
-                strcat(json, prop->propDescr);
+                char * escpedSummary = escape(prop->propDescr);
+                json = (char *) realloc(json, strlen(json) + strlen(escpedSummary) + 2 + 1);
+                strcat(json, escpedSummary);
+                free(escpedSummary);
                 break;
             }
             prop = nextElement(&propertyIterator);
@@ -2001,10 +2006,15 @@ char* calendarToJSON(const Calendar* cal) {
         strcat(json, ver);
 
         /* Writing the PRODID */
-        json = (char *) realloc(json, strlen(json) + 11 + strlen(cal->prodID) + 1 + 1);
+        char * grabProdID = (char *) calloc(1, strlen(cal->prodID) + 1);
+        strcpy(grabProdID, cal->prodID);
+        char * escapedProdID = escape(grabProdID);
+        json = (char *) realloc(json, strlen(json) + 11 + strlen(escapedProdID) + 1 + 1);
         strcat(json, ",\"prodID\":\"");
-        strcat(json, cal->prodID);
+        strcat(json, escapedProdID);
         strcat(json, "\"");
+        free(escapedProdID);
+        free(grabProdID);
 
         json = (char *) realloc(json, strlen(json) + 13);
         strcat(json, ",\"numProps\":");
@@ -2024,4 +2034,27 @@ char* calendarToJSON(const Calendar* cal) {
     json = (char *) realloc(json, strlen(json) + 2);
     strcat(json, "}");
     return json;
+}
+
+char * escape (char * string ) {
+    int len = strlen(string), index = 0;
+
+    char * result = (char *) calloc(1, 1);
+    result[0] = '\0';
+
+    for (int i = 0; i < len; i++) {
+        result = (char *) realloc(result, strlen(result) + (string[i] == '"' ? 2 : 1) + 1);
+        if (string[i] == '"') {
+            result[index] = '\\';
+            result[index + 1] = '"';
+            result[index + 2] = '\0';
+            index += 2;
+        } else {
+            result[index] = string[i];
+            result[index + 1] = '\0';
+            index++;
+        }
+    }
+
+    return result;
 }
