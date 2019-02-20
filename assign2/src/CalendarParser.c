@@ -1825,6 +1825,9 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
         #endif
         event = nextElement(&eventIterator);
     }
+    char * test = calendarToJSON(obj);
+    printf("CAL JSON:%s\n", test);
+    free(test);
     /* After all testing is done */
     return OK;
 }
@@ -1889,6 +1892,12 @@ char* dtToJSON(DateTime prop) {
 }
 
 char* eventToJSON(const Event* event) {
+    /* If it's NULL */
+    if (event == NULL) {
+        char * json = (char *) calloc(1, 3);
+        strcpy(json, "{}");
+        return json;
+    }
     /* {"startDT":DTval,"numProps":propVal,"numAlarms":almVal,"summary":"sumVal"} */
     char * json = (char *) calloc(1, 12);
     json[0] = '\0';
@@ -1938,4 +1947,81 @@ char* eventToJSON(const Event* event) {
 
     strcat(json, "\"}");
     return json;   
+}
+
+char* eventListToJSON(const List* el) {
+    char * json = (char *) calloc(1, 2);
+    strcpy(json, "[");
+
+    /* This is kinda cheesy, but since I can't modify the header. I might as well .. */
+    List l = * el;
+    List * eventList = &l;
+
+    /* Only if it's not NULL */
+    if (eventList != NULL) {
+        ListIterator eventIterator = createIterator(eventList);
+        Event * event = nextElement(&eventIterator);
+        int appendComma = 0;
+
+        while (event != NULL) {
+            if (appendComma) {
+                json = (char *) realloc(json, strlen(json) + 2);
+                strcat(json, ",");
+            } else {
+                appendComma = 1;
+            }
+            char * eventJSON = eventToJSON(event);
+            json = (char *) realloc(json, strlen(json) + strlen(eventJSON) + 1);
+            strcat(json, eventJSON);
+            free(eventJSON);
+            event = nextElement(&eventIterator);
+        }
+    }
+
+    json = (char *) realloc(json, strlen(json) + 2);
+    strcat(json, "]");
+    return json;
+}
+
+char* calendarToJSON(const Calendar* cal) {
+    char * json = (char *) calloc(1, 2);
+    strcpy(json, "{");
+
+    /*{"version":verVal,"prodID":"prodIDVal","numProps":propVal,"numEvents":evtVal}*/
+
+    /* If it's not NULL */
+    if (cal != NULL) {
+        json = (char *) realloc(json, strlen(json) + 11);
+        strcat(json, "\"version\":");
+        
+        /* Writing the version */
+        char ver[10] = "";
+        sprintf(ver, "%.1f", cal->version);
+        json = (char *) realloc(json, strlen(json) + strlen(ver) + 1);
+        strcat(json, ver);
+
+        /* Writing the PRODID */
+        json = (char *) realloc(json, strlen(json) + 11 + strlen(cal->prodID) + 1 + 1);
+        strcat(json, ",\"prodID\":\"");
+        strcat(json, cal->prodID);
+        strcat(json, "\"");
+
+        json = (char *) realloc(json, strlen(json) + 13);
+        strcat(json, ",\"numProps\":");
+        char numProps[10] = "";
+        sprintf(numProps, "%d", 2 + getLength(cal->properties));
+        json = (char *) realloc(json, strlen(json) + strlen(numProps) + 1);
+        strcat(json, numProps);
+
+        json = (char *) realloc(json, strlen(json) + 14);
+        strcat(json, ",\"numEvents\":");
+        char numEvents[10] = "";
+        sprintf(numEvents, "%d", getLength(cal->events));
+        json = (char *) realloc(json, strlen(json) + strlen(numEvents) + 1);
+        strcat(json, numEvents);
+    }
+
+    json = (char *) realloc(json, strlen(json) + 2);
+    strcat(json, "}");
+    return json;
 }

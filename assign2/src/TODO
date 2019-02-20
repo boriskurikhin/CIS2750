@@ -5,6 +5,4 @@
 
 
 1. 
-    Version (null) -> INV_CAL
-    Version(strlen = 0) -> INV_VER
-    //same for prodid
+    What if there are quotes inside a value, do we have to escape them (when converting to json)

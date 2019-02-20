@@ -354,6 +354,7 @@ ListIterator createIterator(List* list) {
     return iterator;
 }
 
+
 void* nextElement(ListIterator* iter){
     void* dataToBeReturned;
     if(iter->current != NULL){
