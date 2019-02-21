@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
-#define DEBUG 0
+#define DEBUG 1
 /* 
     Name: Boris Skurikhin
     ID: 1007339
@@ -21,6 +21,11 @@ Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
 char ** unfold (char ** file, int numLines, int * setLines );
 char * getProp (const char * prop) ;
 char * escape (char * string ) ;
+
+char calprops[2][10] = { "CALSCALE1", "METHOD1" };
+char eventprops[25][30] = { "CLASS1", "CREATED1", "DESCRIPTION1", "GEO1", "LAST-MOD1", "LOCATION1", "ORGANIZER1", "PRIORITY1",
+                            "SEQUENCE1", "STATUS1", "SUMMARY1", "TRANSP1", "URL1", "RECURID1", "RRULE", "ATTACH", "ATTENDEE", 
+                            "CATEGORIES", "COMMENT", "CONTACT", "EXDATE", "RSTATUS", "RELATED", "RESOURCES", "RDATE"};
 
 int main (int argv, char ** argc) {
     if (argv != 2) return 0;
@@ -1343,6 +1348,7 @@ char* printEvent(void* toBePrinted) {
 
     return result;
 }
+
 char* printAlarm(void* toBePrinted) {
     if (toBePrinted == NULL) return NULL;
     Alarm * a = (Alarm *) toBePrinted;
@@ -1373,9 +1379,11 @@ void deleteProperty(void* toBeDeleted) {
     /* We don't have to free the flexible array */
     free(p);
 }
+
 int compareProperties(const void* first, const void* second) {
     return 0;
 }
+
 int compareAlarms(const void * first, const void * second) {
     return 0;
 }
@@ -1767,6 +1775,11 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
                 /* Checking for null & empty strings */
                 if (strlen(prop->propName) == 0 || prop->propDescr == NULL || strlen(prop->propDescr) == 0)
                     return INV_EVENT;
+                
+                /* Duplicates */
+                if (!strcasecmp(prop->propName, "DTSTART") || !strcasecmp(prop->propName, "DTSTAMP") || !strcasecmp(prop->propName, "UID"))
+                    return INV_EVENT;
+                
                 /* If we come across an end */
                 if (!strcasecmp(prop->propName, "DTEND")) {
                     if (hasDuration) 
@@ -1774,14 +1787,66 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
                     hasEnd = 1;
                 }
                 /* If we come across a duration */
-                if (!strcasecmp(prop->propName, "DURATION")) {
+                else if (!strcasecmp(prop->propName, "DURATION")) {
                     if (hasEnd)
                         return INV_EVENT;
                     hasDuration = 1;
                 }
-                /* Duplicates */
-                if (!strcasecmp(prop->propName, "DTSTART") || !strcasecmp(prop->propName, "DTSTAMP") || !strcasecmp(prop->propName, "UID"))
-                    return INV_EVENT;
+                else {
+                    /* Here we can loop through and check if it's a valid event */
+                    int found = 0;
+                    for (int j = 0; j < 25; j++) {
+                        /* If we know the property is only supposed to occur once */
+                        if ( eventprops[j][strlen(eventprops[j]) - 1] == '1' ) {
+                            char * cmp = calloc(1, strlen(eventprops[j]) );
+                            strncpy(cmp, eventprops[j], strlen(eventprops[j]) - 1);
+                            /* Compare up */
+                            if (!strcasecmp(cmp, prop->propName)) {
+                                int count = 0;
+                                ListIterator li = createIterator(event->properties);
+                                Property * p = nextElement(&li);
+                                /* Loop through the list and count properties */
+                                while ( p != NULL) {
+                                    /* We only gonna check the valid once to make things easier */
+                                    if (p->propName && p->propDescr && strlen(p->propName) && strlen(p->propDescr)) {
+                                        if (!strcasecmp(p->propName, prop->propName)) {
+                                            count++;
+                                        }
+                                    }
+                                    p = nextElement(&li);
+                                }
+                                /* If we find more than one */
+                                if (count > 1) {
+                                    free(cmp);
+                                     #if DEBUG
+                                        printf("Something wrong with %s\n", prop->propName);
+                                    #endif
+                                    return INV_EVENT;
+                                }
+                                found = 1;
+                                free(cmp);
+                                break;
+                            }
+                            free(cmp);
+                        } else {
+                            /* If it doesn't have to occur once, we can just say that 
+                            we found the very first occurance and move on */
+                            if (!strcasecmp(eventprops[j], prop->propName)) {
+                                found = 1;
+                                break;
+                            }
+                        }
+                    }
+
+                    /* This property does not belong here */
+                    if (!found) {
+                        #if DEBUG
+                            printf("Something wrong with %s\n", prop->propName);
+                        #endif
+                        return INV_EVENT;
+                    }
+                }
+
                 prop = nextElement(&propertyIterator);
             }
         }
@@ -1800,6 +1865,8 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
                 if (alarm->trigger == NULL || alarm->trigger[0] == '\0'|| strlen(alarm->trigger) == 0)
                     return INV_ALARM;
 
+                int duration = 0, repeat = 0;
+
                 /* If the alarm contains some properties */
                 if (getLength(alarm->properties)) {
                     ListIterator a_propertyIterator = createIterator(alarm->properties);
@@ -1813,6 +1880,30 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
                         /* Duplicates */
                         if (!strcasecmp(a_prop->propName, "TRIGGER") || !strcasecmp(a_prop->propName, "ACTION"))
                             return INV_ALARM;
+                        if (!strcasecmp(a_prop->propName, "DURATION")) {
+                            if (duration) {
+                                #if DEBUG
+                                    printf("Duration occured more than once!\n");
+                                #endif
+                                return INV_ALARM;
+                            }
+                                
+                            duration++;
+                        } else if (!strcasecmp(a_prop->propName, "REPEAT")) {
+                            if (repeat) {
+                                #if DEBUG
+                                    printf("Repeat occured more than once!\n");
+                                #endif
+                                return INV_ALARM;
+                            }
+                            repeat++;
+                        } else if (strcasecmp(a_prop->propName, "ATTACH")) {
+                            /* If it's not an ATTACH */
+                            #if DEBUG
+                                printf("%s is not a valid audioprop\n", a_prop->propName);
+                            #endif
+                            return INV_ALARM;
+                        }
                         a_prop = nextElement(&a_propertyIterator);
                     }
                 }
@@ -2036,6 +2127,7 @@ char* calendarToJSON(const Calendar* cal) {
     return json;
 }
 
+/* This function is used to escape quotes within a string */
 char * escape (char * string ) {
     int len = strlen(string), index = 0;
 
