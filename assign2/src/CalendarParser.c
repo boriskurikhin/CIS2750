@@ -22,7 +22,6 @@ char ** unfold (char ** file, int numLines, int * setLines );
 char * getProp (const char * prop) ;
 char * escape (char * string ) ;
 
-char calprops[2][10] = { "CALSCALE1", "METHOD1" };
 char eventprops[25][30] = { "CLASS1", "CREATED1", "DESCRIPTION1", "GEO1", "LAST-MOD1", "LOCATION1", "ORGANIZER1", "PRIORITY1",
                             "SEQUENCE1", "STATUS1", "SUMMARY1", "TRANSP1", "URL1", "RECURID1", "RRULE", "ATTACH", "ATTENDEE", 
                             "CATEGORIES", "COMMENT", "CONTACT", "EXDATE", "RSTATUS", "RELATED", "RESOURCES", "RDATE"};
@@ -1701,6 +1700,8 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
     if (getLength(obj->events) <= 0 || getLength(obj->properties) < 0 ) 
         return INV_CAL;
 
+    int calscale = 0, method = 0;
+
     /* If some properties exist */
     if (getLength(obj->properties)) {
         ListIterator propertyIterator = createIterator(obj->properties);
@@ -1713,6 +1714,28 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
             /* Duplicate required properties */
             if (!strcasecmp(prop->propName, "PRODID") || !strcasecmp(prop->propName, "VERSION"))
                 return INV_CAL;
+            if (!strcasecmp(prop->propName, "CALSCALE")) {
+                if (calscale) {
+                    #if DEBUG
+                        printf("Calscale appeared more than once\n");
+                    #endif
+                    return INV_CAL;
+                }
+                calscale++;
+            } else if (!strcasecmp(prop->propName, "METHOD")) {
+                if (method) {
+                    #if DEBUG
+                        printf("Method appeared more than once\n");
+                    #endif
+                    return INV_CAL;
+                }
+                method++;
+            } else {
+                #if DEBUG
+                    printf("%s is not supposed to be inside calendar\n", prop->propName);
+                #endif
+                return INV_CAL;
+            }
             prop = nextElement(&propertyIterator);
         }
     }
@@ -1886,8 +1909,7 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
                                     printf("Duration occured more than once!\n");
                                 #endif
                                 return INV_ALARM;
-                            }
-                                
+                            }         
                             duration++;
                         } else if (!strcasecmp(a_prop->propName, "REPEAT")) {
                             if (repeat) {
@@ -1903,6 +1925,7 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
                                 printf("%s is not a valid audioprop\n", a_prop->propName);
                             #endif
                             return INV_ALARM;
+
                         }
                         a_prop = nextElement(&a_propertyIterator);
                     }
