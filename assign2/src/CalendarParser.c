@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
-#define DEBUG 1
+#define DEBUG 0
 /* 
     Name: Boris Skurikhin
     ID: 1007339
@@ -28,8 +28,12 @@ char eventprops[25][30] = { "CLASS1", "CREATED1", "DESCRIPTION1", "GEO1", "LAST-
 
 int main (int argv, char ** argc) {
     if (argv != 2) return 0;
-    Calendar * calendar;
-    ICalErrorCode createCal = createCalendar(argc[1], &calendar);
+    char test[100] = "{\"prodID\":\"-//hacksw/handcal//NONSGML v1.0//EN\",\"version\":13.0}";
+    Calendar * calendar = JSONtoCalendar(test);
+    if (calendar != NULL)
+        printf("Version: %.2lf and ProdID=\"%s\"", calendar->version, calendar->prodID);
+    
+    /*ICalErrorCode createCal = createCalendar(argc[1], &calendar);
     char * errorCode = printError(createCal);
     printf("Parse Status: %s\n\n\n", errorCode);
     if (strcmp(errorCode, "OK")) {
@@ -52,9 +56,8 @@ int main (int argv, char ** argc) {
     output = printError(validateCalendar(calendar));
     printf("Status: %s\n", output);
     free(output);
-    
+    */
     deleteCalendar(calendar);
-
     return 0;
 }
 
@@ -2148,6 +2151,86 @@ char* calendarToJSON(const Calendar* cal) {
     json = (char *) realloc(json, strlen(json) + 2);
     strcat(json, "}");
     return json;
+}
+
+Calendar* JSONtoCalendar(const char* str) {
+
+    if (str == NULL || !strlen(str) || str[0] != '{' || str[strlen(str) - 1] != '}') return NULL;
+
+    float version;
+    /* Create a little object */
+    Calendar * cal = (Calendar *) calloc(1, sizeof(Calendar) );
+    cal->properties = initializeList(printProperty, deleteProperty, compareProperties);
+    cal->events = initializeList(printEvent, deleteEvent, compareEvents);
+
+    cal->prodID[0] = '\0';
+
+    /* Let's look for version */
+   // {"version":2,"prodID":"-//hacksw/handcal//NONSGML v1.0//EN"}
+    int quote = 0;
+    int foundProd = 0;
+    int foundVer = 0;
+
+    for (int i = 1; i < strlen(str) - 1; i++) {
+        if (str[i] == '"') quote ^= 1;
+        if (str[i] == ':' && !quote) {
+            char propname[20] = "";
+            int j, k;
+            if (i - 8 >= 0) {
+                for (j = i - 8, k = 0; j <= i - 2; j++, k++)
+                    propname[k] = str[j];
+                propname[++k] = '\0';
+
+                if (!strcmp(propname, "version")) {
+                    char ver[10] = "";
+                    int j, k = 0;
+                    for (j = i + 1; j < strlen(str); j++) {
+                        if (str[j] != '.' && (str[j] < '0' || str[j] > '9')) break;
+                        ver[k++] = str[j];
+                    }
+                    ver[k] = '\0';
+
+                    if ( !strlen(ver) ) {
+                        free(cal);
+                        return NULL;
+                    }
+                    for (j = 0; j < strlen(ver); j++) {
+                        if (ver[j] == '.') continue;
+                        if (ver[j] < '0' || ver[j] > '9') {
+                            free(cal);
+                            return NULL;
+                        }
+                    }
+                    version = atof(ver);
+                    cal->version = version;
+                    foundVer++;
+                    #if DEBUG
+                        printf("version found: %.2f\n", version);
+                    #endif
+                } else if ( !strcmp(propname, "\"prodID") ) {
+                    int length = 0;
+                    for (int j = i + 2; j < strlen(str) && str[j] != '"'; j++)
+                        length++;
+                    int k = 0;
+                    for (int j = i + 2; j < i + 2 + length; j++)
+                        cal->prodID[k++] = str[j];
+                    cal->prodID[k] = '\0';
+                    foundProd++;
+                     #if DEBUG
+                        printf("prodId: %s\n", cal->prodID);
+                    #endif
+                }
+            }
+        }
+    }
+    /* Something is broken, as the quote was not closed */
+    if (quote || foundProd != 1 || foundVer != 1 || !strlen(cal->prodID)) {
+        free(cal);
+        return NULL;
+    }
+
+    /* Everything should be Gucci */
+    return cal;
 }
 
 /* This function is used to escape quotes within a string */
