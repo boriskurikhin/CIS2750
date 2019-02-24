@@ -29,7 +29,13 @@ char eventprops[25][30] = { "CLASS1", "CREATED1", "DESCRIPTION1", "GEO1", "LAST-
 int main (int argv, char ** argc) {
     if (argv != 2) return 0;
     char test[100] = "{\"prodID\":\"-//hacksw/handcal//NONSGML v1.0//EN\",\"version\":13.0}";
+    char test2[100] = "{UID\":\"THIS IS A UID\"}";
     Calendar * calendar = JSONtoCalendar(test);
+    Event * testEvent = JSONtoEvent(test2);
+    char * output = printEvent(testEvent);
+    printf("%s\n", output);
+    /*free(output);
+    free(testEvent);*/
     if (calendar != NULL)
         printf("Version: %.2lf and ProdID=\"%s\"", calendar->version, calendar->prodID);
     
@@ -2233,6 +2239,51 @@ Calendar* JSONtoCalendar(const char* str) {
     return cal;
 }
 
+Event * JSONtoEvent(const char* str) {
+    if (str == NULL || !strlen(str) || str[0] != '{' || str[strlen(str) - 1] != '}') return NULL;
+
+    Event * event = (Event *) calloc(1, sizeof(Event) );
+    int length = strlen(str), quote = 0;
+
+    event->properties = initializeList(printProperty, deleteProperty, compareProperties);
+    event->alarms = initializeList(printAlarm, deleteAlarm, compareAlarms);
+
+    int foundUID = 0;
+    for (int i = 1; i < length - 1; i++) {
+        if (str[i] == '"') quote ^= 1;
+        if (str[i] == ':' && !quote) {
+            int k = 0;
+            /* make sure we actually have a UID and nothing else!!! */
+            if (i - 5 > 0) {
+                if (str[i - 1] == '"' && str[i - 2] == 'D' && str[i - 3] == 'I' && str[i - 4] == 'U' && str[i - 5] == '"' && str[i + 1] == '"') {
+                    for (int j = i + 2; j < strlen(str) && str[j] != '"'; j++)
+                        event->UID[k++] = str[j];
+                    event->UID[k] = '\0';
+
+                    /* If it's still empty */
+                    if (!strlen(event->UID)) {
+                        free(event);
+                        return NULL;
+                    }
+                    foundUID = 1;
+                }
+            }
+        }
+    }
+    if (!foundUID) {
+        free(event);
+        return NULL;
+    }
+    return event;
+}
+
+void addEvent(Calendar* cal, Event* toBeAdded) {
+    if (cal && toBeAdded) {
+        if (cal->events == NULL)
+            cal->events = initializeList(printEvent, deleteEvent, compareEvents);
+        insertBack(cal->events, toBeAdded);
+    }
+}
 /* This function is used to escape quotes within a string */
 char * escape (char * string ) {
     int len = strlen(string), index = 0;
