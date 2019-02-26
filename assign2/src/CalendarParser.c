@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
-#define DEBUG 0
+#define DEBUG 1
 /* 
     Name: Boris Skurikhin
     ID: 1007339
@@ -29,27 +29,27 @@ const char eventprops[25][30] = { "CLASS1", "CREATED1", "DESCRIPTION1", "GEO1", 
 
 int main (int argv, char ** argc) {
     if (argv != 2) return 0;
-    char test[100] = "{\"prodID\":\"-//hacksw/handcal//NONSGML v1.0//EN\",\"version\":13.0}";
-    char test2[100] = "{\"UID\":\"THIS IS A UID\"}";
-    Calendar * calendar = JSONtoCalendar(test);
-    Event * testEvent = JSONtoEvent(test2);
-    if (testEvent) {
-        char * output = printEvent(testEvent);
-        printf("%s\n", output);
-        free(output);
-        deleteEvent(testEvent);
-    } else {
-        printf("Event returned NULL\n");
-    }
+    // char test[100] = "{\"prodID\":\"-//hacksw/handcal//NONSGML v1.0//EN\",\"version\":13.0}";
+    // char test2[100] = "{\"UID\":\"THIS IS A UID\"}";
+        Calendar * calendar = NULL;
+    // Event * testEvent = JSONtoEvent(test2);
+    // if (testEvent) {
+    //     char * output = printEvent(testEvent);
+    //     printf("%s\n", output);
+    //     free(output);
+    //     deleteEvent(testEvent);
+    // } else {
+    //     printf("Event returned NULL\n");
+    // }
     /*free(output);
     free(testEvent);*/
-    if (calendar != NULL) {
-        printf("Version: %.2lf and ProdID=\"%s\"", calendar->version, calendar->prodID);
-    } else {
-        printf("Calendar returned NULL\n");
-    }
+    // if (calendar != NULL) {
+    //     printf("Version: %.2lf and ProdID=\"%s\"", calendar->version, calendar->prodID);
+    // } else {
+    //     printf("Calendar returned NULL\n");
+    // }
     
-    /*ICalErrorCode createCal = createCalendar(argc[1], &calendar);
+    ICalErrorCode createCal = createCalendar(argc[1], &calendar);
     char * errorCode = printError(createCal);
     printf("Parse Status: %s\n\n\n", errorCode);
     if (strcmp(errorCode, "OK")) {
@@ -72,7 +72,7 @@ int main (int argv, char ** argc) {
     output = printError(validateCalendar(calendar));
     printf("Status: %s\n", output);
     free(output);
-    */
+    
     deleteCalendar(calendar);
     return 0;
 }
