@@ -21,23 +21,33 @@ Alarm * createAlarm(char ** file, int beginIndex, int endIndex);
 char ** unfold (char ** file, int numLines, int * setLines );
 char * getProp (const char * prop) ;
 char * escape (char * string ) ;
+int validLength(const char * string, int length );
 
-char eventprops[25][30] = { "CLASS1", "CREATED1", "DESCRIPTION1", "GEO1", "LAST-MOD1", "LOCATION1", "ORGANIZER1", "PRIORITY1",
-                            "SEQUENCE1", "STATUS1", "SUMMARY1", "TRANSP1", "URL1", "RECURID1", "RRULE", "ATTACH", "ATTENDEE", 
-                            "CATEGORIES", "COMMENT", "CONTACT", "EXDATE", "RSTATUS", "RELATED", "RESOURCES", "RDATE"};
+const char eventprops[25][30] = { "CLASS1", "CREATED1", "DESCRIPTION1", "GEO1", "LAST-MODIFIED1", "LOCATION1", "ORGANIZER1", "PRIORITY1",
+                            "SEQUENCE1", "STATUS1", "SUMMARY1", "TRANSP1", "URL1", "RECURRENCE-ID1", "RRULE", "ATTACH", "ATTENDEE", 
+                            "CATEGORIES", "COMMENT", "CONTACT", "EXDATE", "REQUEST-STATUS", "RELATED-TO", "RESOURCES", "RDATE"};
 
 int main (int argv, char ** argc) {
     if (argv != 2) return 0;
     char test[100] = "{\"prodID\":\"-//hacksw/handcal//NONSGML v1.0//EN\",\"version\":13.0}";
-    char test2[100] = "{UID\":\"THIS IS A UID\"}";
+    char test2[100] = "{\"UID\":\"THIS IS A UID\"}";
     Calendar * calendar = JSONtoCalendar(test);
     Event * testEvent = JSONtoEvent(test2);
-    char * output = printEvent(testEvent);
-    printf("%s\n", output);
+    if (testEvent) {
+        char * output = printEvent(testEvent);
+        printf("%s\n", output);
+        free(output);
+        deleteEvent(testEvent);
+    } else {
+        printf("Event returned NULL\n");
+    }
     /*free(output);
     free(testEvent);*/
-    if (calendar != NULL)
+    if (calendar != NULL) {
         printf("Version: %.2lf and ProdID=\"%s\"", calendar->version, calendar->prodID);
+    } else {
+        printf("Calendar returned NULL\n");
+    }
     
     /*ICalErrorCode createCal = createCalendar(argc[1], &calendar);
     char * errorCode = printError(createCal);
@@ -1693,8 +1703,19 @@ char * getProp (const char * prop) {
     char * result = (char *) calloc(1, strlen(prop) + 2 );
     result[0] = (hasParams ? ';' : ':');
     strcat(result, prop);
-    return result; 
+    return result;
 }
+
+int validLength(const char * string, int length) {
+    if (string == NULL || string[0] == '\0' || !strlen(string)) return 0;
+    /* Loop until specified length, see if we can find a NULL terminator */
+    for (int i = 0; i < length; i++)
+        if (string[i] == '\0') 
+            return 1;
+    /* There is no NULL terminator within given length */
+    return 0;
+}
+
 
 ICalErrorCode validateCalendar(const Calendar* obj) {
     /* If the object is NULL, we can just return invalid calendar */
@@ -1702,12 +1723,20 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
         return INV_CAL;
 
     /* If the prodID is empty */
-    if ( obj->prodID[0] == '\0' || !strlen(obj->prodID) )
+    if ( !validLength(obj->prodID, 1000) ) {
+        #if DEBUG
+            printf("Error! PRODID seems to be invalid length!\n");
+        #endif
         return INV_CAL;
+    }
 
     /* Either list is badly initialized (or events is empty) */
-    if (getLength(obj->events) <= 0 || getLength(obj->properties) < 0 ) 
+    if (getLength(obj->events) <= 0 || getLength(obj->properties) < 0 ) {
+        #if DEBUG
+            printf("Error! Either events or properties (for calendar) have not been initialized!\n");
+        #endif
         return INV_CAL;
+    }
 
     int calscale = 0, method = 0;
 
@@ -1718,15 +1747,23 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
         
         while (prop != NULL) {
             /* Checking for null & empty strings */
-            if (strlen(prop->propName) == 0 || prop->propDescr == NULL || strlen(prop->propDescr) == 0)
+            if ( !validLength(prop->propName, 200) || prop->propDescr == NULL || !strlen(prop->propDescr) ) {
+                #if DEBUG
+                    printf("Error! Either propname/propDescr are invalid size\n");
+                #endif
                 return INV_CAL;
+            }
             /* Duplicate required properties */
-            if (!strcasecmp(prop->propName, "PRODID") || !strcasecmp(prop->propName, "VERSION"))
+            if (!strcasecmp(prop->propName, "PRODID") || !strcasecmp(prop->propName, "VERSION")) {
+                #if DEBUG
+                    printf("Error! PRODID or VERSION have appeared in optional properties!\n");
+                #endif
                 return INV_CAL;
+            }
             if (!strcasecmp(prop->propName, "CALSCALE")) {
                 if (calscale) {
                     #if DEBUG
-                        printf("Calscale appeared more than once\n");
+                        printf("Error! Calscale appeared more than once\n");
                     #endif
                     return INV_CAL;
                 }
@@ -1734,14 +1771,14 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
             } else if (!strcasecmp(prop->propName, "METHOD")) {
                 if (method) {
                     #if DEBUG
-                        printf("Method appeared more than once\n");
+                        printf("Error! Method appeared more than once\n");
                     #endif
                     return INV_CAL;
                 }
                 method++;
             } else {
                 #if DEBUG
-                    printf("%s is not supposed to be inside calendar\n", prop->propName);
+                    printf("Error! %s is not supposed to be inside calendar\n", prop->propName);
                 #endif
                 return INV_CAL;
             }
@@ -1756,42 +1793,34 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
 
     while (event != NULL) {
         /* UID can't be empty */
-        if (event->UID[0] == '\0' || strlen(event->UID) == 0)
+        if (!validLength(event->UID, 1000)) {
+            #if DEBUG   
+                printf("Error! Event UID is invalid length\n");
+            #endif
             return INV_EVENT;
+        }
         /* Either list is NULL, not empty */
-        if (getLength(event->properties) < 0 || getLength(event->alarms) < 0)
+        if (getLength(event->properties) < 0 || getLength(event->alarms) < 0) {
+            #if DEBUG
+                printf("Error! Event property/alarm list have not been initialized!\n");
+            #endif
             return INV_EVENT;
-       /* We can validate them using our function */
-        char * date_test = (char *) calloc(1, 9 + 7 + 3);
-        date_test[0] = '\0';
-        /* Testing creation date time */
-        strcpy(date_test, event->creationDateTime.date);
-        strcat(date_test, "T");
-        strcat(date_test, event->creationDateTime.time);
-        if (event->creationDateTime.UTC)
-            strcat(date_test, "Z");
-        if (!validateStamp(date_test)) {
-            free(date_test);
-            return INV_DT;
         }
-        /* Now we can test -- start date time */
-        free(date_test);
-        date_test = (char *) calloc(1, 9 + 7 + 3);
-        date_test[0] = '\0';
-        strcpy(date_test, event->startDateTime.date);
-        strcat(date_test, "T");
-        strcat(date_test, event->startDateTime.time);
-        if (event->startDateTime.UTC)
-            strcat(date_test, "Z");
-        /* Test it up */
-        if (!validateStamp(date_test)) {
-            free(date_test);
-            return INV_DT;
+
+        /* Let's check dates */
+        if (!validLength(event->creationDateTime.date, 9) || !validLength(event->creationDateTime.time, 7)) {
+            #if DEBUG
+                printf("Error! creation date/time is invalid!\n");
+            #endif
+            return INV_EVENT;
         }
-        /* Free our temporary variable */
-        free(date_test);
-        /* At this point we're done testing the required properties of the
-           event */
+
+        if (!validLength(event->startDateTime.date, 9) || !validLength(event->startDateTime.time, 7)) {
+            #if DEBUG
+                printf("Error! start date/time is invalid!\n");
+            #endif
+            return INV_EVENT;
+        }
 
         /* If the event has some properties, let's check them out */
         if (getLength(event->properties)) {
@@ -1814,17 +1843,16 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
                 
                 /* If we come across an end */
                 if (!strcasecmp(prop->propName, "DTEND")) {
-                    if (hasDuration) 
+                    if (hasDuration || hasEnd) 
                         return INV_EVENT;
                     hasEnd = 1;
                 }
                 /* If we come across a duration */
                 else if (!strcasecmp(prop->propName, "DURATION")) {
-                    if (hasEnd)
+                    if (hasEnd || hasDuration)
                         return INV_EVENT;
                     hasDuration = 1;
-                }
-                else {
+                } else {
                     /* Here we can loop through and check if it's a valid event */
                     int found = 0;
                     for (int j = 0; j < 25; j++) {
@@ -1851,7 +1879,7 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
                                 if (count > 1) {
                                     free(cmp);
                                      #if DEBUG
-                                        printf("Something wrong with %s\n", prop->propName);
+                                        printf("Error! %s MUST appear once, yet it appeared %d times!\n", prop->propName, count);
                                     #endif
                                     return INV_EVENT;
                                 }
@@ -1869,16 +1897,14 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
                             }
                         }
                     }
-
                     /* This property does not belong here */
                     if (!found) {
                         #if DEBUG
-                            printf("Something wrong with %s\n", prop->propName);
+                            printf("Error!%s is not a valid event property!\n", prop->propName);
                         #endif
                         return INV_EVENT;
                     }
                 }
-
                 prop = nextElement(&propertyIterator);
             }
         }
@@ -1890,7 +1916,7 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
             
             while (alarm != NULL) {
                 /* Action is empty */
-                if (alarm->action[0] == '\0' || strlen(alarm->action) == 0) 
+                if ( !validLength(alarm->action, 200) )
                     return INV_ALARM;
 
                 /* Trigger is empty */
@@ -1939,6 +1965,13 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
                         a_prop = nextElement(&a_propertyIterator);
                     }
                 }
+                /* One can't appear without the other */
+                if (duration ^ repeat) {
+                    #if DEBUG
+                        printf("Error! Duration can't appear without repeat && vice-versa!\n");
+                    #endif
+                    return INV_ALARM;
+                }
                 alarm = nextElement(&alarmIterator);
             }
         }
@@ -1950,9 +1983,9 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
         event = nextElement(&eventIterator);
     }
     #if DEBUG
-    char * test = calendarToJSON(obj);
-    printf("CAL JSON:%s\n", test);
-    free(test);
+        char * test = calendarToJSON(obj);
+        printf("CAL JSON:%s\n", test);
+        free(test);
     #endif
     /* After all testing is done */
     return OK;
@@ -2159,6 +2192,7 @@ char* calendarToJSON(const Calendar* cal) {
     return json;
 }
 
+/* Converts a JSON string into a Calendar object */
 Calendar* JSONtoCalendar(const char* str) {
 
     if (str == NULL || !strlen(str) || str[0] != '{' || str[strlen(str) - 1] != '}') return NULL;
@@ -2239,6 +2273,7 @@ Calendar* JSONtoCalendar(const char* str) {
     return cal;
 }
 
+/* Converts a JSON string into an Event */
 Event * JSONtoEvent(const char* str) {
     if (str == NULL || !strlen(str) || str[0] != '{' || str[strlen(str) - 1] != '}') return NULL;
 
@@ -2277,13 +2312,18 @@ Event * JSONtoEvent(const char* str) {
     return event;
 }
 
+/* Inserts event into the calendar */
 void addEvent(Calendar* cal, Event* toBeAdded) {
-    if (cal && toBeAdded) {
+    /* Make sure the arguments exist & aren't NULL */
+    if (cal != NULL && toBeAdded != NULL) {
+        /* Create list if need be */
         if (cal->events == NULL)
             cal->events = initializeList(printEvent, deleteEvent, compareEvents);
+        /* Insert event */
         insertBack(cal->events, toBeAdded);
     }
 }
+
 /* This function is used to escape quotes within a string */
 char * escape (char * string ) {
     int len = strlen(string), index = 0;
