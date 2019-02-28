@@ -13,7 +13,6 @@
 char ** readFile (char * , int *, ICalErrorCode *);
 char ** findProperty(char ** file, int beginIndex, int endIndex, char * propertyName, bool once, int * count, ICalErrorCode *);
 char * getToken ( char * entireFile, int * index, ICalErrorCode *);
-void trim (char ** );
 ICalErrorCode checkFormatting( char ** entireFile, int numLines, int ignoreCalendar);
 char ** getAllPropertyNames (char ** file, int beginIndex, int endIndex, int * numElements, int * errors);
 int validateStamp ( char * check );
@@ -27,27 +26,28 @@ const char eventprops[25][30] = { "CLASS1", "CREATED1", "DESCRIPTION1", "GEO1", 
                             "SEQUENCE1", "STATUS1", "SUMMARY1", "TRANSP1", "URL1", "RECURRENCE-ID1", "RRULE", "ATTACH", "ATTENDEE", 
                             "CATEGORIES", "COMMENT", "CONTACT", "EXDATE", "REQUEST-STATUS", "RELATED-TO", "RESOURCES", "RDATE"};
 
+
 int main (int argv, char ** argc) {
     if (argv != 2) return 0;
-    // char test[100] = "{\"prodID\":\"-//hacksw/handcal//NONSGML v1.0//EN\",\"version\":13.0}";
-    // char test2[100] = "{\"UID\":\"THIS IS A UID\"}";
-        Calendar * calendar = NULL;
-    // Event * testEvent = JSONtoEvent(test2);
-    // if (testEvent) {
-    //     char * output = printEvent(testEvent);
-    //     printf("%s\n", output);
-    //     free(output);
-    //     deleteEvent(testEvent);
-    // } else {
-    //     printf("Event returned NULL\n");
-    // }
+    char test[100] = "{\"prodID\":\"-//hacksw/handcal//NONSGML v1.0//EN\",\"version\":13.0}";
+    char test2[100] = "{\"UID\":\"THIS IS A UID\"}";
+    Calendar * calendar = NULL;
+    Event * testEvent = JSONtoEvent(test2);
+    if (testEvent) {
+        char * output = printEvent(testEvent);
+        printf("%s\n", output);
+        free(output);
+        deleteEvent(testEvent);
+    } else {
+        printf("Event returned NULL\n");
+    }
     /*free(output);
     free(testEvent);*/
-    // if (calendar != NULL) {
-    //     printf("Version: %.2lf and ProdID=\"%s\"", calendar->version, calendar->prodID);
-    // } else {
-    //     printf("Calendar returned NULL\n");
-    // }
+    if (calendar != NULL) {
+        printf("Version: %.2lf and ProdID=\"%s\"", calendar->version, calendar->prodID);
+    } else {
+        printf("Calendar returned NULL\n");
+    }
     
     ICalErrorCode createCal = createCalendar(argc[1], &calendar);
     char * errorCode = printError(createCal);
@@ -67,13 +67,94 @@ int main (int argv, char ** argc) {
     #endif
     free(output);
     free(errorCode);
-    writeCalendar("writetest.ics", calendar);
+    writeCalendar("writetest2.ics", calendar);
     
     output = printError(validateCalendar(calendar));
     printf("Status: %s\n", output);
     free(output);
     
     deleteCalendar(calendar);
+
+    // Calendar * obj = NULL;
+
+    // obj = malloc(sizeof(Calendar));
+
+    // obj->version = 2.0;
+    // strcpy(obj->prodID, "-//hacksw/h,andcal//NONSGML v1.0//EN");
+    // obj->events = initializeList(&printEvent,&deleteEvent,&compareEvents);
+
+    // obj->properties = initializeList(&printProperty, &deleteProperty, &compareProperties);
+
+
+    // Property *newCalProp = malloc(sizeof(Property) +  5000);
+    // strcpy(newCalProp->propName, "CALSCALE");
+    // strcpy(newCalProp->propDescr, "AWESOME");
+    // insertBack(obj->properties, newCalProp);
+
+    // Event * newEvent = calloc(1, sizeof(Event));
+    // newEvent->alarms = initializeList(&printAlarm, &deleteAlarm,&compareAlarms);
+
+    // strcpy(newEvent->creationDateTime.date, "20090901"); 
+    // strcpy(newEvent->creationDateTime.time, "170000");
+    // newEvent->creationDateTime.UTC = 1;
+
+    // strcpy(newEvent->startDateTime.date, "20090901"); 
+    // strcpy(newEvent->startDateTime.time, "170000");
+    // newEvent->startDateTime.UTC = 0;
+
+    // strcpy(newEvent->UID, "SOME EVENT UID");
+    // newEvent->properties = initializeList(&printProperty, &deleteProperty, &compareProperties);
+
+    // Property *newProp = malloc(sizeof(Property) + 5000);
+    // strcpy(newProp->propName, "PRIORITY");
+    // strcpy(newProp->propDescr, "4");
+    // insertBack(newEvent->properties, newProp);
+
+    // Property *newProp2 = malloc(sizeof(Property) + 5000);
+    // strcpy(newProp2->propName, "SUMMARY");
+    // strcpy(newProp2->propDescr, "Nigga got hoes bitch nigga");
+    // insertBack(newEvent->properties, newProp2);
+
+
+    // Property * a = malloc(sizeof(Property) + 5000);
+    // strcpy(a->propName, "DURATION");
+    // strcpy(a->propDescr, "Nigga got hoes bitch nigga");
+
+    // Alarm * alarm = malloc(sizeof(Alarm) );
+    // strcpy(alarm->action, "WAGWAN");
+    // alarm->trigger = malloc(100);
+    // strcpy(alarm->trigger, "YEET");
+    // alarm->properties = initializeList(printProperty, deleteProperty, compareProperties );
+
+    // insertBack(alarm->properties, a );
+    // insertBack(newEvent->alarms, alarm);
+    // insertBack(obj->events, newEvent);
+
+    // Event * newEvent2 = calloc(1, sizeof(Event));
+    // newEvent2->alarms = initializeList(&printAlarm, &deleteAlarm,&compareAlarms);
+
+    // strcpy(newEvent2->creationDateTime.date, "20090901"); 
+    // strcpy(newEvent2->creationDateTime.time, "170000");
+    // newEvent2->creationDateTime.UTC = 1;
+
+    // strcpy(newEvent2->startDateTime.date, "20090901"); 
+    // strcpy(newEvent2->startDateTime.time, "170000");
+    // newEvent2->startDateTime.UTC = 1;
+
+    // strcpy(newEvent2->UID, "SOME EVENT UID");
+    // newEvent2->properties = initializeList(&printProperty, &deleteProperty, &compareProperties);
+
+    // insertBack(obj->events, newEvent2);
+
+    // ICalErrorCode validate = validateCalendar( obj );
+    // char * output = printError(validate);
+    // writeCalendar("writetest.ics", obj);
+
+    // printf("%s\n", output);
+
+    // free(output);
+    // deleteCalendar(obj);
+
     return 0;
 }
 
@@ -632,28 +713,6 @@ void deleteCalendar(Calendar * obj) {
     free ( obj );
     obj = NULL;
 }
-/* Assumes everything ends with \r\n */
-void trim (char ** string) {
-    char * str = *string;
-    char * newString = NULL;
-    if (str == NULL || !strlen(str)) return;
-
-    int beginIndex = 0, length = strlen(str), endIndex = length - 1, newLength, i, j;
-    while (beginIndex < length && isspace(str[beginIndex])) beginIndex++;
-    while (endIndex >= beginIndex && isspace(str[endIndex])) endIndex--;
-
-    newLength = endIndex - beginIndex + 1;
-    newString = (char *) calloc (1, newLength + 1 );
-    for (i = beginIndex, j = 0; i <= endIndex; i++, j++) {
-        newString[j] = str[i];
-    }
-    // newString[newLength + 0] = '\r';
-    // newString[newLength + 1] = '\n';
-    newString[newLength + 2] = '\0';
-    /* Free the old string and re-assign it */
-    if (str) free(str);
-    *string = newString;
-}
 /* Reads tokens, returns -1 for index if the tokens are bad */
 char * getToken ( char * entireFile, int * index, ICalErrorCode * errorCode) {
     char * line = NULL;
@@ -1143,7 +1202,22 @@ ICalErrorCode checkFormatting (char ** entire_file, int numLines, int ignoreCale
             int hasColon = 0, insideQuotes = 0;
             for (int j = 1; j < lineLength; j++) {
                 if (entire_file[i][j] == '"') insideQuotes ^= 1;
-                if (!insideQuotes && (entire_file[i][j] == ';' || entire_file[i][j] == ':')) hasColon++;
+                if (!insideQuotes) {
+                    if (entire_file[i][j] == ':') hasColon++;
+                    else if (entire_file[i][j] == ';') {
+                        /* Attach && Trigger */
+                        if ((j - 6) >= 0 && (entire_file[i][j - 1] == 'h' || entire_file[i][j - 1] == 'H') && (entire_file[i][j - 2] == 'c' || entire_file[i][j - 2] == 'C')
+                        && (entire_file[i][j - 3] == 'a' || entire_file[i][j - 3] == 'A') && (entire_file[i][j - 4] == 't' || entire_file[i][j - 4] == 'T') 
+                        && (entire_file[i][j - 5] == 't' || entire_file[i][j - 5] == 'T') && (entire_file[i][j - 6] == 'a' || entire_file[i][j - 6] == 'A')) {
+                            hasColon++;
+                        } else if ((j - 7) >= 0 && (entire_file[i][j - 1] == 'r' || entire_file[i][j - 1] == 'R') && (entire_file[i][j - 2] == 'e' || entire_file[i][j - 2] == 'E')
+                        && (entire_file[i][j - 3] == 'g' || entire_file[i][j - 3] == 'G') && (entire_file[i][j - 4] == 'g' || entire_file[i][j - 4] == 'G') 
+                        && (entire_file[i][j - 5] == 'i' || entire_file[i][j - 5] == 'I') && (entire_file[i][j - 6] == 'r' || entire_file[i][j - 6] == 'R')
+                        && (entire_file[i][j - 7] == 't' || entire_file[i][j - 7] == 'T')) {
+                            hasColon++;
+                        }
+                    }
+                }   
             }
             /* It's folded */
             if (!hasColon) {
@@ -1311,6 +1385,7 @@ void deleteEvent(void* toBeDeleted) {
     if (e->alarms) freeList(e->alarms);
     free(e);
 }
+
 void deleteAlarm(void* toBeDeleted) {
     if (toBeDeleted == NULL) return;
     Alarm * a = (Alarm *) toBeDeleted;
@@ -1318,9 +1393,11 @@ void deleteAlarm(void* toBeDeleted) {
     if (a->properties) freeList(a->properties);
     free(a);
 }
+
 int compareEvents(const void* first, const void* second) {
     return 0;
 }
+
 /* Temporary print */
 char* printEvent(void* toBePrinted) {
     if (toBePrinted == NULL) return NULL;
@@ -1583,6 +1660,7 @@ Alarm * createAlarm(char ** file, int beginIndex, int endIndex) {
     free(alarm);
     return NULL;
 }
+
 void deleteDate(void* toBeDeleted) { 
     if (toBeDeleted == NULL) return;
     
@@ -1715,7 +1793,6 @@ int validLength(const char * string, int length) {
     /* There is no NULL terminator within given length */
     return 0;
 }
-
 
 ICalErrorCode validateCalendar(const Calendar* obj) {
     /* If the object is NULL, we can just return invalid calendar */
@@ -2157,7 +2234,7 @@ char* calendarToJSON(const Calendar* cal) {
         
         /* Writing the version */
         char ver[10] = "";
-        sprintf(ver, "%.1f", cal->version);
+        sprintf(ver, "%d", (int) cal->version);
         json = (char *) realloc(json, strlen(json) + strlen(ver) + 1);
         strcat(json, ver);
 
@@ -2194,7 +2271,6 @@ char* calendarToJSON(const Calendar* cal) {
 
 /* Converts a JSON string into a Calendar object */
 Calendar* JSONtoCalendar(const char* str) {
-
     if (str == NULL || !strlen(str) || str[0] != '{' || str[strlen(str) - 1] != '}') return NULL;
 
     float version;
@@ -2305,7 +2381,7 @@ Event * JSONtoEvent(const char* str) {
             }
         }
     }
-    if (!foundUID) {
+    if (!foundUID || quote) {
         free(event);
         return NULL;
     }
