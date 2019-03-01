@@ -80,9 +80,5 @@ EVENTS
 	SUMMARY->This event is not optional.
 	CATEGORIES->BUSINESS,LEISURE,EVERYTHING
 	RDATE-> whatever
-	RDATE-> whatever
-	RDATE-> whatever
-	RDATE-> whatever
-	RDATE-> whatever
 	TRANSP->TRANSPARENT
 	=END EVENT=

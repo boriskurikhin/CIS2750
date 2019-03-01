@@ -3,11 +3,11 @@
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
-#define DEBUG 1
+#define DEBUG 0
 /* 
     Name: Boris Skurikhin
     ID: 1007339
-    CIS*2750 - Assignment 1
+    CIS*2750 - Assignment 2
 */
 /* Function definitions */
 char ** readFile (char * , int *, ICalErrorCode *);
@@ -29,26 +29,9 @@ const char eventprops[25][30] = { "CLASS1", "CREATED1", "DESCRIPTION1", "GEO1", 
 
 int main (int argv, char ** argc) {
     if (argv != 2) return 0;
-    char test[100] = "{\"prodID\":\"-//hacksw/handcal//NONSGML v1.0//EN\",\"version\":13.0}";
-    char test2[100] = "{\"UID\":\"THIS IS A UID\"}";
+
     Calendar * calendar = NULL;
-    Event * testEvent = JSONtoEvent(test2);
-    if (testEvent) {
-        char * output = printEvent(testEvent);
-        printf("%s\n", output);
-        free(output);
-        deleteEvent(testEvent);
-    } else {
-        printf("Event returned NULL\n");
-    }
-    /*free(output);
-    free(testEvent);*/
-    if (calendar != NULL) {
-        printf("Version: %.2lf and ProdID=\"%s\"", calendar->version, calendar->prodID);
-    } else {
-        printf("Calendar returned NULL\n");
-    }
-    
+
     ICalErrorCode createCal = createCalendar(argc[1], &calendar);
     char * errorCode = printError(createCal);
     printf("Parse Status: %s\n\n\n", errorCode);
@@ -57,9 +40,11 @@ int main (int argv, char ** argc) {
         return 0;
     }
     char * output = printCalendar(calendar);
+    
     if (output) {
         printf("%s", output);
     }
+
     #if DEBUG
         FILE * out = fopen("output.txt", "w");
         fprintf(out, "%s", output);
@@ -1993,7 +1978,7 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
             
             while (alarm != NULL) {
                 /* Action is empty */
-                if ( !validLength(alarm->action, 200) )
+                if ( !validLength(alarm->action, 200) || strcasecmp(alarm->action, "AUDIO") )
                     return INV_ALARM;
 
                 /* Trigger is empty */
@@ -2067,6 +2052,7 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
     /* After all testing is done */
     return OK;
 }
+
 /* unfolds */
 char ** unfold (char ** file, int numLines, int * setLines ) {
     char ** result = NULL;
@@ -2110,6 +2096,7 @@ char ** unfold (char ** file, int numLines, int * setLines ) {
     *setLines = newLines;
     return result;
 }
+
 /* MODULE 3 */
 char* dtToJSON(DateTime prop) {
     /* {"date":"","time":"","isUTC":} */
