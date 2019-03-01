@@ -1,6 +1,6 @@
 #Boris Skurikhin
 #1007339
-#Assignment 1 - Module 1
+#Assignment 2 
 
 CC = gcc
 CFLAGS = -Wall -g -std=c11 -Iinclude/
@@ -8,9 +8,11 @@ CFLAGS = -Wall -g -std=c11 -Iinclude/
 all: list parser
 
 list: src/LinkedListAPI.c
-	$(CC) $(CFLAGS) -g src/LinkedListAPI.c -c -o bin/list.o
-parser: src/CalendarParser.c bin/list.o
-	$(CC) $(CFLAGS) -g src/CalendarParser.c bin/list.o -o bin/parser.out
+	$(CC) -c -fPIC $(CFLAGS) src/LinkedListAPI.c -o bin/list.o
+	$(CC) -shared -o bin/liblist.so bin/list.o
+parser: src/CalendarParser.c list
+	$(CC) -c -fPIC $(CFLAGS) src/CalendarParser.c -o bin/parser.o
+	$(CC) -shared -o bin/libcal.so bin/parser.o bin/list.o
 clean:
-	rm bin/parser.out
-	rm bin/list.out
+	rm bin/*.o
+	rm bin/*.so
