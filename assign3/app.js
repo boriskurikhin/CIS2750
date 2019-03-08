@@ -15,10 +15,32 @@ app.use(fileUpload());
 
 // Minimization
 const fs = require('fs');
+const ref = require('ref');
 const JavaScriptObfuscator = require('javascript-obfuscator');
 
 // Important, pass in port as in `npm run dev 1234`, do not change
 const portNum = process.argv[2];
+
+let ICalErrorCode = ref.types.void;
+let ICalErrorCodePtr = ref.refType(ICalErrorCode);
+let Calendar = ref.types.void;
+let CalendarPtr = ref.refType(Calendar);
+let CalendarPtrPtr = ref.refType(CalendarPtr);
+
+//Create the mapping from C
+let parserLib = ffi.Library("./parser/bin/libcal.so", {
+  "createCalendar" : [ICalErrorCodePtr, ["string", CalendarPtrPtr] ],
+  "calendarToJSON" : ["string", [CalendarPtr]]
+});
+
+function getCalendar(filename) {
+  let calendar = ref.alloc(CalendarPtrPtr);
+  let name = "./upload/" + filename;
+  var obj = parserLib.createCalendar(name, calendar);
+  var retObj = JSON.parse(parserLib.calendarToJSON(calendar.deref()));
+  retObj['filename'] = filename;
+  return retObj;
+}
 
 // Send HTML at root, do not change
 app.get('/',function(req,res){
@@ -76,8 +98,13 @@ app.get('/uploads/:name', function(req , res){
 
 app.get('/getnumfiles', function(req, res) {
   fs.readdir('./upload', (err, files) => {
+    var calendars = [];
+    files.forEach( file => {
+      calendars.push(getCalendar(file))
+    });
     res.send({
-      numFiles: files.length
+      numFiles: files.length,
+      files: calendars
     });
   });
 });
