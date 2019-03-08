@@ -45,9 +45,9 @@ app.post('/upload', function(req, res) {
   if(!req.files) {
     return res.status(400).send('No files were uploaded.');
   }
- 
+
   let uploadFile = req.files.uploadFile;
- 
+
   // Use the mv() method to place the file somewhere on your server
   uploadFile.mv('uploads/' + uploadFile.name, function(err) {
     if(err) {
@@ -70,9 +70,18 @@ app.get('/uploads/:name', function(req , res){
   });
 });
 
-//******************** Your code goes here ******************** 
+//******************** Your code goes here ********************
 
 //Sample endpoint
+
+app.get('/getnumfiles', function(req, res) {
+  fs.readdir('./upload', (err, files) => {
+    res.send({
+      numFiles: files.length
+    });
+  });
+});
+
 app.get('/someendpoint', function(req , res){
   res.send({
     foo: "bar"
