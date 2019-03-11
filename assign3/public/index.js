@@ -4,8 +4,6 @@ function init() {
   var instance = M.Tabs.init(elem, {});
 }
 
-
-
 $.ajax({
   type: "GET",
   url: "/getnumfiles",
@@ -21,7 +19,7 @@ $.ajax({
       // <li class="tab"><a href="#test4">Test 1</a></li>
       $('#tabList').append('<li class="tab"><a href="#' + obj['filename'] + '">' + obj['filename'] + '</a></li>');
       // <div id="test4">Test 1</div>
-      var table = '<div id="' + obj['filename'] + '"><table><thead><tr><th>File Name</th><th>Version</th><th>Product ID</th><th># Events</th><th># Properties</th></tr></thead><tbody><tr><td>' + obj['filename'] + '</td><td>' + obj['version'] + '</td><td>' + obj['prodID'] + '</td><td>' + obj['numEvents'] + '</td><td>' + obj['numProps'] + '</td></tr></tbody></table></div>';
+      var table = '<div id="' + obj['filename'] + '"><table><thead><tr><th>File Name</th><th>Version</th><th>Product ID</th><th># Events</th><th># Properties</th></tr></thead><tbody><tr><td><a href="upload/' + obj['filename'] +'">' + obj['filename'] + '</a></td><td>' + obj['version'] + '</td><td>' + obj['prodID'] + '</td><td>' + obj['numEvents'] + '</td><td>' + obj['numProps'] + '</td></tr></tbody></table></div>';
       $('#tabVals').append(table);
     });
     init();

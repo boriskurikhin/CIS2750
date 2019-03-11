@@ -81,11 +81,11 @@ app.post('/upload', function(req, res) {
 });
 
 //Respond to GET requests for files in the uploads/ directory
-app.get('/uploads/:name', function(req , res){
-  fs.stat('uploads/' + req.params.name, function(err, stat) {
+app.get('/upload/:name', function(req , res){
+  fs.stat('upload/' + req.params.name, function(err, stat) {
     console.log(err);
     if(err == null) {
-      res.sendFile(path.join(__dirname+'/uploads/' + req.params.name));
+      res.sendFile(path.join(__dirname+'/upload/' + req.params.name));
     } else {
       res.send('');
     }
