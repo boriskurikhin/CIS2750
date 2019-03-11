@@ -8,26 +8,39 @@
     <title>Assignment 3</title>
     <link rel="stylesheet" href="/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha256-LA89z+k9fjgMKQ/kq4OO2Mrf8VltYml/VES+Rg0fh20=" crossorigin="anonymous" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha256-5+02zu5UULQkO7w1GIr6vftCgMfFdZcAHeDtFnKZsBs=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>         
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   </head>
-  <body class="bg-dark">
-      <table class="table table-striped table-dark">
-        <tbody>
-          <tr>
-            <td class="text-center">Status: <span style="color:#00ff55;">Success</span></td>
-          </tr>
-          <tr>
-            <td id="insertCalendars">File Log -- There are <span id="numFiles" style="color:#ff5500">0</span> files on the server. <hr> </td>
-          </tr>
-          <tr>
-            <td>Calendar</td>
-          </tr>
-          <tr>
-            <td>Additional</td>
-          </tr>
-        </tbody>
-      </table>
-      <script type="text/javascript" src="/index.js"></script>
+  <body style>
+    <!-- Navbar -->
+    <nav>
+      <div class="nav-wrapper container">
+        <a href="#" class="brand-logo">iCalendar</a>
+        <ul id="nav-mobile" class="right hide-on-med-and-down">
+          <li><a href="#">File Log</a></li>
+          <li><a href="#">Calendar View</a></li>
+          <li><a href="#">Additional</a></li>
+        </ul>
+      </div>
+    </nav>
+    <!-- File Log Panel -->
+    <div class="center-align">
+      <div class="card">
+        <div class="card-content">
+          <h6>File Log</h6>
+          <span id="statusMessage"></span>
+        </div>
+        <div class="card-tabs">
+          <ul id="tabList" class="tabs tabs-fixed-width">
+           
+          </ul>
+        </div>
+        <div id="tabVals" class="card-content grey lighten-4">
+          
+        </div>
+      </div>
+    </div>
+    <script type="text/javascript" src="/index.js"></script>
   </body>
 </html>
