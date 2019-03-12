@@ -21,7 +21,7 @@ const JavaScriptObfuscator = require('javascript-obfuscator');
 // Important, pass in port as in `npm run dev 1234`, do not change
 const portNum = process.argv[2];
 
-let ICalErrorCode = ref.types.void;
+let ICalErrorCode = ref.types.int;
 let ICalErrorCodePtr = ref.refType(ICalErrorCode);
 let Calendar = ref.types.void;
 let CalendarPtr = ref.refType(Calendar);
@@ -29,17 +29,25 @@ let CalendarPtrPtr = ref.refType(CalendarPtr);
 
 //Create the mapping from C
 let parserLib = ffi.Library("./parser/bin/libcal.so", {
-  "createCalendar" : [ICalErrorCodePtr, ["string", CalendarPtrPtr] ],
-  "calendarToJSON" : ["string", [CalendarPtr]]
+  "createCalendar" : [ICalErrorCode, ["string", CalendarPtrPtr] ],
+  "calendarToJSON" : ["string", [CalendarPtr]],
+  "printError" : ["string", [ICalErrorCode]],
+  "validateCalendar" : [ICalErrorCode, [CalendarPtr]]
 });
 
 function getCalendar(filename) {
   let calendar = ref.alloc(CalendarPtrPtr);
-  let name = "./upload/" + filename;
-  var obj = parserLib.createCalendar(name, calendar);
-  var retObj = JSON.parse(parserLib.calendarToJSON(calendar.deref()));
-  retObj['filename'] = filename;
-  return retObj;
+  let name = "./uploads/" + filename;
+  let obj = parserLib.createCalendar(name, calendar);
+  /* Validate that the Calendar parsed okay */
+  if (parserLib.printError(obj) === 'OK' && parserLib.printError(parserLib.validateCalendar(calendar.deref())) === 'OK') {
+    var retObj = JSON.parse(parserLib.calendarToJSON(calendar.deref()));
+    retObj['filename'] = filename;
+    return retObj;
+  } else {
+    /* Else return a NULL */
+    return null;
+  }
 }
 
 // Send HTML at root, do not change
@@ -62,8 +70,8 @@ app.get('/index.js',function(req,res){
   });
 });
 
-//Respond to POST requests that upload files to uploads/ directory
-app.post('/upload', function(req, res) {
+//Respond to POST requests that uploads files to uploads/ directory
+app.post('/uploads', function(req, res) {
   if(!req.files) {
     return res.status(400).send('No files were uploaded.');
   }
@@ -81,11 +89,11 @@ app.post('/upload', function(req, res) {
 });
 
 //Respond to GET requests for files in the uploads/ directory
-app.get('/upload/:name', function(req , res){
-  fs.stat('upload/' + req.params.name, function(err, stat) {
+app.get('/uploads/:name', function(req , res){
+  fs.stat('uploads/' + req.params.name, function(err, stat) {
     console.log(err);
     if(err == null) {
-      res.sendFile(path.join(__dirname+'/upload/' + req.params.name));
+      res.sendFile(path.join(__dirname+'/uploads/' + req.params.name));
     } else {
       res.send('');
     }
@@ -97,13 +105,16 @@ app.get('/upload/:name', function(req , res){
 //Sample endpoint
 
 app.get('/getnumfiles', function(req, res) {
-  fs.readdir('./upload', (err, files) => {
+  fs.readdir('./uploads', (err, files) => {
     var calendars = [];
     files.forEach( file => {
-      calendars.push(getCalendar(file))
+        var json = getCalendar(file);
+        if (json !== null) {
+          calendars.push(json);
+        }
     });
     res.send({
-      numFiles: files.length,
+      numFiles: calendars.length,
       files: calendars
     });
   });

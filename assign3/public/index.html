@@ -8,7 +8,7 @@
     <title>Assignment 3</title>
     <link rel="stylesheet" href="/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>         
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   </head>
@@ -31,14 +31,24 @@
           <h6>File Log</h6>
           <span id="statusMessage"></span>
         </div>
-        <div class="card-tabs">
+        <div class="card-t">
           <ul id="tabList" class="tabs tabs-fixed-width">
           </ul>
         </div>
-        <div id="tabVals" class="card-content grey lighten-4">
+        <div id="tabVals" class="card-contsent grey lighten-4">
         </div>
         <div class="card-action">
-          <a href="#" class="pink-text">Upload File</a>
+          <form id="fileForm" enctype="multipart/form-data">
+            <div class="file-field input-field">
+              <div class="btn red lighten-2">
+                <span>Upload .ICS File</span>
+                <input type="file" id="btnFile" name="file" accept=".ics" />
+              </div>
+              <div class="file-path-wrapper">
+                <input class="file-path validate" type="text" />
+              </div>
+            </div>
+          </form>
         </div>
       </div>
     </div>
