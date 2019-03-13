@@ -78,7 +78,7 @@ app.post('/uploads', function(req, res) {
 
   let uploadFile = req.files.uploadFile;
 
-  // Use the mv() method to place the file somewhere on your server
+// Use the mv() method to place the file somewhere on your server
   uploadFile.mv('uploads/' + uploadFile.name, function(err) {
     if(err) {
       return res.status(500).send(err);
@@ -86,6 +86,7 @@ app.post('/uploads', function(req, res) {
 
     res.redirect('/');
   });
+
 });
 
 //Respond to GET requests for files in the uploads/ directory
@@ -120,9 +121,18 @@ app.get('/getnumfiles', function(req, res) {
   });
 });
 
-app.get('/someendpoint', function(req , res){
-  res.send({
-    foo: "bar"
+app.get('/getfile/:filename', function(req, res) {
+  fs.readdir('./uploads', (err, files) => {
+    var to_send = null;
+    files.forEach( file => {
+        var json = getCalendar(file);
+        if (json !== null && json['filename'] === req.params.filename) {
+          to_send = json;
+        }
+    });
+    res.send({
+      file: to_send
+    });
   });
 });
 
