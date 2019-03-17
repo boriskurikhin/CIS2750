@@ -21,6 +21,11 @@ char ** unfold (char ** file, int numLines, int * setLines );
 char * getProp (const char * prop) ;
 char * escape (char * string ) ;
 int validLength(const char * string, int length );
+char* eventListToJSONWrapper(const Calendar* cal);
+char* alarmToJSON(const Alarm * alarm);
+char* alarmListToJSON(const List* al);
+char* alarmListToJSONWrapper(const Calendar * cal, int eventNumber);
+
 
 const char eventprops[25][30] = { "CLASS1", "CREATED1", "DESCRIPTION1", "GEO1", "LAST-MODIFIED1", "LOCATION1", "ORGANIZER1", "PRIORITY1",
                             "SEQUENCE1", "STATUS1", "SUMMARY1", "TRANSP1", "URL1", "RECURRENCE-ID1", "RRULE", "ATTACH", "ATTENDEE",
@@ -2057,6 +2062,48 @@ char* eventToJSON(const Event* event) {
     return json;
 }
 
+char* alarmToJSON(const Alarm* alarm) {
+    /* If it's NULL */
+    if (alarm == NULL) {
+        char * json = (char *) calloc(1, 3);
+        strcpy(json, "{}");
+        return json;
+    }
+    /* {"action":DTval,"trigger":propVal,"numProps":almVal} */
+    char * json = (char *) calloc(1, 12);
+    json[0] = '\0';
+    strcpy(json, "{\"action\":");
+
+    char * action = (char *) calloc(1, strlen(alarm->action) + 1);
+    strcpy(action, alarm->action);
+
+    json = realloc(json, strlen(json) + strlen(action) + 1 + 1 + 1 + 1);
+    strcat(json, "\"");
+    strcat(json, action);
+    strcat(json, "\",");
+
+    char * trigger = (char *) calloc(1, strlen(alarm->trigger) + 1);
+    strcpy(trigger, alarm->trigger);
+    json = realloc(json, strlen(json) + strlen(trigger) + 20 + 1);
+    strcat(json, "\"trigger\":\"");
+    strcat(json, trigger);
+    strcat(json, "\",");
+
+    int numProps = getLength(alarm->properties);
+    char propStr[30] = "";
+    sprintf(propStr, "\"numProps\":%d}", numProps);
+
+    json = realloc(json, strlen(json) + strlen(propStr) + 1);
+    strcat(json, propStr);
+
+    /* Add start date to the event */
+    
+    free(action);
+    free(trigger);
+
+    return json;
+}
+
 char* eventListToJSON(const List* el) {
     char * json = (char *) calloc(1, 2);
     strcpy(json, "[");
@@ -2089,6 +2136,62 @@ char* eventListToJSON(const List* el) {
     json = (char *) realloc(json, strlen(json) + 2);
     strcat(json, "]");
     return json;
+}
+
+char* alarmListToJSON(const List* al) {
+    char * json = (char *) calloc(1, 2);
+    strcpy(json, "[");
+
+    List l = * al;
+    List * alarmList = &l;
+
+    if (alarmList != NULL) {
+        ListIterator alarmIterator = createIterator(alarmList);
+        Alarm * alarm = nextElement(&alarmIterator);
+        int appendComma = 0;
+
+        while (alarm != NULL) {
+            if (appendComma) {
+                json = (char *) realloc(json, strlen(json) + 2);
+                strcat(json, ",");
+            } else {
+                appendComma = 1;
+            }
+            char * alarmJSON = alarmToJSON(alarm);
+            json = (char *) realloc(json, strlen(json) + strlen(alarmJSON) + 1);
+            strcat(json, alarmJSON);
+            free(alarmJSON);
+            alarm = nextElement(&alarmIterator);
+        }
+    }
+
+    json = (char *) realloc(json, strlen(json) + 2);
+    strcat(json, "]");
+    return json;
+}
+
+char* alarmListToJSONWrapper(const Calendar * cal, int eventNumber) {
+    List * eventList = cal->events;
+    ListIterator eventIterator = createIterator(eventList);
+    Event * event = nextElement(&eventIterator);
+    int index = 1;
+
+    while (event != NULL) {
+        if (index == eventNumber) {
+            return alarmListToJSON(event->alarms);
+        }
+        
+        index++;
+        event = nextElement(&eventIterator);
+    }
+
+    char * nothing = (char *) calloc(1, 3);
+    strcpy(nothing, "[]");
+    return nothing;
+}
+
+char* eventListToJSONWrapper(const Calendar* cal) {
+    return eventListToJSON(cal->events);
 }
 
 char* calendarToJSON(const Calendar* cal) {
