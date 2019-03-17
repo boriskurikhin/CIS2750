@@ -32,7 +32,9 @@ let parserLib = ffi.Library("./parser/bin/libcal.so", {
   "createCalendar" : [ICalErrorCode, ["string", CalendarPtrPtr] ],
   "calendarToJSON" : ["string", [CalendarPtr]],
   "printError" : ["string", [ICalErrorCode]],
-  "validateCalendar" : [ICalErrorCode, [CalendarPtr]]
+  "validateCalendar" : [ICalErrorCode, [CalendarPtr]],
+  "eventListToJSONWrapper" : ["string", [CalendarPtr]],
+  "alarmListToJSONWrapper" : ["string", [CalendarPtr, ref.types.int]]
 });
 
 function getCalendar(filename) {
@@ -42,13 +44,17 @@ function getCalendar(filename) {
   /* Validate that the Calendar parsed okay */
   if (parserLib.printError(obj) === 'OK' && parserLib.printError(parserLib.validateCalendar(calendar.deref())) === 'OK') {
     var retObj = JSON.parse(parserLib.calendarToJSON(calendar.deref()));
-    retObj['filename'] = filename;
+    retObj['eventList'] = JSON.parse(parserLib.eventListToJSONWrapper(calendar.deref()));
+    for (var i = 0; i < retObj['eventList'].length; i++) {
+      retObj['eventList'][i]['alarms'] = JSON.parse(parserLib.alarmListToJSONWrapper(calendar.deref(), i + 1));
+    }
     return retObj;
   } else {
     /* Else return a NULL */
     return null;
   }
 }
+
 
 // Send HTML at root, do not change
 app.get('/',function(req,res){
@@ -80,7 +86,8 @@ app.post('/uploads', function(req, res) {
 
 // Use the mv() method to place the file somewhere on your server
   uploadFile.mv('uploads/' + uploadFile.name, function(err) {
-    if(err) {
+    /* Test the file */
+    if ( err ) {
       return res.status(500).send(err);
     }
 
@@ -108,14 +115,17 @@ app.get('/uploads/:name', function(req , res){
 app.get('/getnumfiles', function(req, res) {
   fs.readdir('./uploads', (err, files) => {
     var calendars = [];
+    let size = 0;
     files.forEach( file => {
         var json = getCalendar(file);
         if (json !== null) {
+          size++;
+          json['filename'] = file;
           calendars.push(json);
         }
     });
     res.send({
-      numFiles: calendars.length,
+      numFiles: size,
       files: calendars
     });
   });

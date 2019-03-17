@@ -1,48 +1,35 @@
 var fileCount = 0;
-
-function init() {
-  /* This function will get called on init */
-  var elem = document.querySelector('.tabs');
-  var instance = M.Tabs.init(elem, {});
-}
+var calendars = {};
 
 $(document).ready(function() {
-  fileLog(true);
-});
-
-function addCalendar(filename) {
-  $.ajax({
-    type: "GET",
-    url: "/getfile/" + filename,
-    dataType: "JSON",
-    success: function(res) {
-      //Show how many files there are on the server
-
-      //Append them
-      let obj = res['file'];
-      console.log(obj);
-
-      if (obj !== null && obj['filename'] === filename) {
-      // <li class="tab"><a href="#test4">Test 1</a></li>
-        $('#tabList').append('<li class="tab"><a href="#' + obj['filename'] + '">' + obj['filename'] + '</a></li>');
-        // <div id="test4">Test 1</div>
-        var table = '<div id="' + obj['filename'] + '"><table><thead><tr><th>File Name</th><th>Version</th><th>Product ID</th><th># Events</th><th># Properties</th></tr></thead><tbody><tr><td><a href="upload/' + obj['filename'] +'">' + obj['filename'] + '</a></td><td>' + obj['version'] + '</td><td>' + obj['prodID'] + '</td><td>' + obj['numEvents'] + '</td><td>' + obj['numProps'] + '</td></tr></tbody></table></div>';
-        $('#tabVals').append(table);
-        fileCount += 1;
-
-        $('#statusMessage').empty();
-
-        if (res['numFiles'] == 0 ) {
-          $('#statusMessage').append('There are <span class="pink-text">NO</span> valid files on the server.');
-        } else {
-          $('#statusMessage').append('There are <span class="pink-text">' + fileCount + '</span> valid files on the server.');
-        }
-        init();
-      } else {
-        pushError('Could not upload "' + filename + '"!');
+  fileLog();
+  $('select').formSelect();
+  /* This is where we will re-render the calendar */
+  $('#caldropdown').on('change', function() {
+    $('#calview').empty();
+    let caltable = '<table><thead><th>Event No</th><th>Start Date</th><th>Start Time</th><th>Summary</th><th>Props</th><th>Alarms</th></thead>';
+    caltable += '<tbody>';
+    for (var i = 0; i < calendars[$(this).val()].length; i++) {
+      var row = calendars[$(this).val()][i];
+      caltable += '<tr><td>' + (1 + i) + '</td><td>' + formatDate(row['startDT']['date']) + '</td><td>' + formatTime(row['startDT']['time']) + (row['startDT']['isUTC'] ? ' (UTC)' : '') + '</td><td>' + row['summary'] + '</td><td>' + row['numProps'] + '</td><td><a style="cursor: pointer" onclick="$(\'.alarms_' + (i+1) + '\').toggle()">' + row['numAlarms'] + '</a></td></tr>';
+      caltable += '<tr style="display:none" class="grey lighten-1 alarms_' + (i + 1) + '"><th>Action</th><th>Trigger</th><th>Props</th></tr>';
+      for (var j = 0; j < row['alarms'].length; j++) {
+        var alarm = row['alarms'][j];
+        caltable += '<tr style="display:none" class="grey lighten-2 alarms_' + (i + 1) + '"><td>' + alarm['action'] + '</td><td>' + alarm['trigger'] + '</td>' + '<td>' + alarm['numProps'] + '</td></tr>';
       }
     }
+    caltable += '</tbody></table>';
+
+    $('#calview').append(caltable);
   });
+});
+
+function formatDate(datestring) {
+  return datestring.substring(0, 4) + '/' + datestring.substring(4, 6) + '/' + datestring.substring(6);
+}
+
+function formatTime(timestring) {
+  return timestring.substring(0, 2) + ':' + timestring.substring(2, 4) + ':' + timestring.substring(4);
 }
 
 function pushError(errorMsg) {
@@ -77,20 +64,22 @@ $('#btnFile').on('change', function() {
       contentType: false,
       processData: false,
       success: function() {
-        addCalendar(filename);
+        fileLog();
       },
       error: function() {
         pushError('Could not upload "' + filename + '"!');      }
     });
   }
   /* $('#btnFile').val(''); */
-})
+});
 
-function fileLog(doInit) {
+/* Updates the file log */
+function fileLog() {
   /* Clear */
   $('#statusMessage').empty();
-  $('#tabList').empty();
-  $('#tabVals').empty();
+  $('#filelogbody').empty();
+  $('#caldropdown').empty();
+  $('#caldropdown').append('<option value="" disabled selected>Choose a file</option>');
   $.ajax({
     type: "GET",
     url: "/getnumfiles",
@@ -105,15 +94,12 @@ function fileLog(doInit) {
       fileCount = res['numFiles'];
       //Append them
       res['files'].forEach(obj => {
-        // <li class="tab"><a href="#test4">Test 1</a></li>
-        $('#tabList').append('<li class="tab"><a href="#' + obj['filename'] + '">' + obj['filename'] + '</a></li>');
-        // <div id="test4">Test 1</div>
-        var table = '<div id="' + obj['filename'] + '"><table><thead><tr><th>File Name</th><th>Version</th><th>Product ID</th><th># Events</th><th># Properties</th></tr></thead><tbody><tr><td><a href="upload/' + obj['filename'] +'">' + obj['filename'] + '</a></td><td>' + obj['version'] + '</td><td>' + obj['prodID'] + '</td><td>' + obj['numEvents'] + '</td><td>' + obj['numProps'] + '</td></tr></tbody></table></div>';
-        $('#tabVals').append(table);
+        /* Show in file log panel only if it's valid */
+        calendars[obj['filename']] = obj['eventList'];
+        var row = '<tr><td><a href="uploads/' + obj['filename'] +'">' + obj['filename'] + '</a></td><td>' + obj['version'] + '</td><td>' + obj['prodID'] + '</td><td>' + obj['numEvents'] + '</td><td>' + obj['numProps'] + '</td></tr>';
+        $('#filelogbody').append(row);
+        $('#caldropdown').append('<option value="' + obj['filename'] + '">' + obj['filename'] + '</option>');
       });
-      if (doInit === true && fileCount > 0) {
-        init();
-      }
     }
   });
 }
