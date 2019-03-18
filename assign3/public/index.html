@@ -6,22 +6,17 @@
     <meta name="keywords" content="calendar,ics,format,parser">
     <meta name="author" content="Boris Skurikhin">
     <title>Assignment 3</title>
-    <link rel="stylesheet" href="/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
   </head>
   <body style>
     <!-- Navbar -->
     <nav>
       <div class="nav-wrapper container">
-        <a href="#" class="brand-logo">iCalendar</a>
-        <ul id="nav-mobile" class="right hide-on-med-and-down">
-          <li><a href="#fileLog">File Log</a></li>
-          <li><a href="#">Calendar View</a></li>
-          <li><a href="#">Additional</a></li>
-        </ul>
+        <a href="#" class="brand-logo center">iCalendar</a>
       </div>
     </nav>
     <!-- File Log Panel -->
@@ -74,6 +69,7 @@
         <div class="card">
           <div class="card-content">
               <h6 class="center-align">Calendar View Panel</h6>
+              <div class="center-align"><p>You may click on the Props/Alarms buttons to display them :)</p></div>
               <label>Select a file to view all its' components: </label>
               <select class="browser-default" id="caldropdown" >
               </select>

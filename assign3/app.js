@@ -55,6 +55,18 @@ function getCalendar(filename) {
   }
 }
 
+function getError(filename) {
+  let calendar = ref.alloc(CalendarPtrPtr);
+  let name = "./uploads/" + filename;
+  let obj = parserLib.createCalendar(name, calendar);
+  /* Validate that the Calendar parsed okay */
+  if (parserLib.printError(obj) !== 'OK') {
+    return parserLib.printError(obj);
+  } else {
+    return parserLib.printError(parserLib.validateCalendar(calendar.deref()));
+  }
+}
+
 
 // Send HTML at root, do not change
 app.get('/',function(req,res){
@@ -87,8 +99,10 @@ app.post('/uploads', function(req, res) {
 // Use the mv() method to place the file somewhere on your server
   uploadFile.mv('uploads/' + uploadFile.name, function(err) {
     /* Test the file */
-    if ( err ) {
-      return res.status(500).send(err);
+    let errCode = getError(uploadFile.name);
+    if ( err ||  errCode !== 'OK') {
+      console.log(errCode);
+      return res.status(500).send(errCode);
     }
 
     res.redirect('/');

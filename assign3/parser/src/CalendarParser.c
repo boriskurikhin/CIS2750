@@ -25,6 +25,8 @@ char* eventListToJSONWrapper(const Calendar* cal);
 char* alarmToJSON(const Alarm * alarm);
 char* alarmListToJSON(const List* al);
 char* alarmListToJSONWrapper(const Calendar * cal, int eventNumber);
+char * propertyToJSON(const Property * prop);
+char * propertyListToJSON(const List * pl);
 
 
 const char eventprops[25][30] = { "CLASS1", "CREATED1", "DESCRIPTION1", "GEO1", "LAST-MODIFIED1", "LOCATION1", "ORGANIZER1", "PRIORITY1",
@@ -2041,6 +2043,7 @@ char* eventToJSON(const Event* event) {
     json = (char *) realloc(json, strlen(json) + 15);
     strcat(json, ",\"summary\":\"");
 
+
     if (getLength(event->properties)) {
         ListIterator propertyIterator = createIterator(event->properties);
         Property * prop = nextElement(&propertyIterator);
@@ -2058,7 +2061,14 @@ char* eventToJSON(const Event* event) {
         }
     }
 
-    strcat(json, "\"}");
+    char * props = propertyListToJSON(event->properties);
+
+    json = (char *) realloc(json, strlen(json) + 20 + strlen(props));
+    strcat(json, "\",\"props\":");
+    strcat(json, props);
+
+    strcat(json, "}");
+    free(props);
     return json;
 }
 
@@ -2091,15 +2101,21 @@ char* alarmToJSON(const Alarm* alarm) {
 
     int numProps = getLength(alarm->properties);
     char propStr[30] = "";
-    sprintf(propStr, "\"numProps\":%d}", numProps);
+    sprintf(propStr, "\"numProps\":%d,", numProps);
+    
+    char * propList = propertyListToJSON(alarm->properties);
 
-    json = realloc(json, strlen(json) + strlen(propStr) + 1);
+    json = realloc(json, strlen(json) + strlen(propStr) + 1 + strlen(propList) + 10);
     strcat(json, propStr);
+    strcat(json, "\"props\":");
+    strcat(json, propList);
+    strcat(json, "}");
 
     /* Add start date to the event */
     
     free(action);
     free(trigger);
+    free(propList);
 
     return json;
 }
@@ -2239,6 +2255,49 @@ char* calendarToJSON(const Calendar* cal) {
 
     json = (char *) realloc(json, strlen(json) + 2);
     strcat(json, "}");
+    return json;
+}
+
+char * propertyToJSON(const Property * prop) {
+    int size = strlen(prop->propName) + strlen(prop->propDescr) + 35 + 2 + 2 + 1 + 1;
+    char * json = (char *) calloc(1, size);
+    strcpy(json, "{\"propName\":\"");
+    strcat(json, prop->propName);
+    strcat(json, "\",\"propDescr\":\"");
+    strcat(json, prop->propDescr);
+    strcat(json, "\"}");
+    return json;
+}
+
+char * propertyListToJSON(const List * pl) {
+    char * json = (char *) calloc(1, 2);
+    strcpy(json, "[");
+
+    List l = * pl;
+    List * propList = &l;
+
+    if (propList != NULL) {
+        ListIterator propertyIterator = createIterator(propList);
+        Property * prop = nextElement(&propertyIterator);
+        int appendComma = 0;
+
+        while (prop != NULL) {
+            if (appendComma) {
+                json = (char *) realloc(json, strlen(json) + 2);
+                strcat(json, ",");
+            } else {
+                appendComma = 1;
+            }
+            char * propJSON = propertyToJSON(prop);
+            json = (char *) realloc(json, strlen(json) + strlen(propJSON) + 1);
+            strcat(json, propJSON);
+            free(propJSON);
+            prop = nextElement(&propertyIterator);
+        }
+    }
+
+    json = (char *) realloc(json, strlen(json) + 2);
+    strcat(json, "]");
     return json;
 }
 
