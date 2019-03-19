@@ -10,8 +10,12 @@ const express = require("express");
 const app     = express();
 const path    = require("path");
 const fileUpload = require('express-fileupload');
+const bodyParser = require('body-parser');
 
 app.use(fileUpload());
+app.use(bodyParser.urlencoded({
+  extended: true
+}));
 
 // Minimization
 const fs = require('fs');
@@ -42,7 +46,7 @@ function getCalendar(filename) {
   let name = "./uploads/" + filename;
   let obj = parserLib.createCalendar(name, calendar);
   /* Validate that the Calendar parsed okay */
-  if (parserLib.printError(obj) === 'OK' && parserLib.printError(parserLib.validateCalendar(calendar.deref())) === 'OK') {
+  if (getError(filename) === 'OK') {
     var retObj = JSON.parse(parserLib.calendarToJSON(calendar.deref()));
     retObj['eventList'] = JSON.parse(parserLib.eventListToJSONWrapper(calendar.deref()));
     for (var i = 0; i < retObj['eventList'].length; i++) {
@@ -86,6 +90,44 @@ app.get('/index.js',function(req,res){
     res.contentType('application/javascript');
     res.send(minimizedContents._obfuscatedCode);
   });
+});
+
+app.post('/create', function(req, res) {
+  
+  let json = req.body;
+  console.log(json);
+
+  var content = 'BEGIN:VCALENDAR\r\n';
+
+  /* Basic shit */
+  content += 'VERSION:' + json['version'] + '\r\n';
+  content += 'PRODID:' + json['prodId'] + '\r\n';
+
+  /* Event */
+  let numEvents = parseInt(json['numEvents']);
+  for (var i = 0; i < numEvents; i++) {
+    content += 'BEGIN:VEVENT\r\n';
+
+    content += 'UID:' + json['events'][i]['uid'] + '\r\n';
+    content += 'DTSTAMP:' + json['events'][i]['dtstamp'] + '\r\n'; 
+    content += 'DTSTART:' + json['events'][i]['dtstart'] + '\r\n';
+
+    let numProps = parseInt(json['events'][i]['numProps']);
+    for (let j = 0; j < numProps; j++) {
+      content += json['events'][i]['props'][j]['propName'] + ':' + json['events'][i]['props'][j]['propDescr'] + '\r\n'; 
+    }
+
+    content += 'END:VEVENT\r\n';
+  }
+  content += 'END:VCALENDAR\r\n';
+
+  fs.writeFile(path.join(__dirname + '/uploads/' + json['name'] + '.ics'), content, function(err) {
+    if (err) {
+      return res.status(400).send('Could not create file on the server!');
+    }
+  });
+
+  return res.status(200).send('Nice bruv');
 });
 
 //Respond to POST requests that uploads files to uploads/ directory

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="en" dir="ltr" class="red lighten-4">
   <head>
     <meta charset="utf-8">
     <meta name="description" content="Assignment 3 for CIS2750">
@@ -51,7 +51,7 @@
       </div>
       <div class="col s3">
         <div class="card">
-          <div id="status" class="card-content green lighten-2">
+          <div id="status" class="card-content green lighten-4">
             <h6>Status Panel</h6>
           </div>
           <div class="card-action">
@@ -75,6 +75,74 @@
               </select>
            </div>
           <div id="calview" class="card-action">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col s12">
+        <div class="card">
+          <div class="card-content center-align">
+            <h6>Create new Calendar!</h6>
+            <p>Make sure to check the status panel for any errors after you hit "Create Calendar", and <b><u>click</u></b> on the "Start Date" and "Start Time"  to activate their respective pickers!</p>
+          </div>
+          <div class="card-action">
+            <div class="row">
+              <form class="col s12">
+                <div class="input-field col s4">
+                  <input placeholder="newCalendar" id="new_name" type="text" class="validate">
+                  <label for="new_name">Calendar Name</label>
+                </div>
+                <div class="input-field col s4">
+                  <input placeholder="2" id="new_version" type="number" class="validate" min="1">
+                  <label for="new_name">Version</label>
+                </div>
+                <div class="input-field col s4">
+                  <input placeholder="Boris's Calendar Maker 1.0 " id="new_prodid" type="text" class="validate" >
+                  <label for="new_prodid">Prod Id</label>
+                </div>
+              </form>
+            </div>
+            <div id="events">
+              <div class="event event_1 grey lighten-5 z-depth-1">
+                <div class="row">
+                  <div class="col s12 center-align">
+                    <h6>Event 1</h6>
+                  </div>
+                </div>
+                <div class="row">
+                  <form class="col s12">
+                      <div class="input-field col s8">
+                        <textarea id="event_1_uid" type="text" class="materialize-textarea"></textarea>
+                        <label for="event_1_uid">UID</label>
+                      </div>
+                      <div class="input-field col s2">
+                        <input type="text" id="event_1_dtstart_date" class="datepicker">
+                        <label for="event_1_dtstart_date">Start Date</label>
+                      </div>
+                      <div class="input-field col s2">
+                        <input type="text" id="event_1_dtstart_time" class="timepicker">
+                        <label for="event_1_dtstart_time">Start Time</label>
+                      </div>
+                  </form>
+                </div>
+                <div id="event_1_props"></div>
+                <div class="row">
+                  <div class="col s12 right-align">
+                    <button class="btn-flat" onclick="addprop('event_1_props', 1)">ADD PROP</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col s6 center-align">
+                <button id="createcalendar" class="btn red lighten-2">Create Calendar</button>
+              </div>
+              <div class="col s6 center-align">
+                  <button id="addevent" class="btn red lighten-2">Add Event</button>
+                </div>
+            </div>
           </div>
         </div>
       </div>
