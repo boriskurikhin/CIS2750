@@ -21,8 +21,12 @@ $(document).ready(function() {
     caltable += '<tbody>';
     for (var i = 0; i < calendars[$(this).val()].length; i++) {
       var row = calendars[$(this).val()][i];
+      console.log(row);
       caltable += '<tr class="grey lighten-5"><td>' + (1 + i) + '</td><td>' + formatDate(row['startDT']['date']) + '</td><td>' + formatTime(row['startDT']['time']) + (row['startDT']['isUTC'] ? ' (UTC)' : '') + '</td><td>' + row['summary'] + '</td><td><a style="cursor: pointer" onclick="$(\'.properties_' + (i+1) + '\').toggle()">' + row['numProps'] + '</a></td><td><a style="cursor: pointer" onclick="$(\'.alarms_' + (i+1) + '\').toggle()">' + row['numAlarms'] + '</a></td></tr>';
       caltable += '<tr style="display:none" class="grey lighten-1 properties_' + (i + 1) + '"><th></th><th>Prop Name</th><th>Prop Value</th><th></th><th></th><th></th></tr>';
+      caltable += '<tr style="display: none" class="properties_1"><td></td><td>UID</td><td>' + row['UID']  + '</td><td></td><td></td></tr>';
+      caltable += '<tr style="display: none" class="properties_1"><td></td><td>Creation Date & Time</td><td>' + formatDate(row['stampDate']['date']) + ' at ' + formatTime(row['stampDate']['time']) + (row['stampDate']['UTC'] ? ' (UTC)' : '') + '</td><td></td><td></td></tr>';
+      caltable += '<tr style="display: none" class="properties_1"><td></td><td>Start Date & Time </td><td>' + formatDate(row['startDT']['date']) + ' at ' + formatTime(row['startDT']['time']) + (row['startDT']['UTC'] ? ' (UTC)' : '') + '</td><td></td><td></td></tr>';
       for (var j = 0; j < row['props'].length; j++) {
         var prop = row['props'][j];
         caltable += '<tr style="display: none" class="properties_' + (i+1) + '"><td></td><td>' + prop['propName'] + '</td><td>' + prop['propDescr'] + '</td><td></td><td></td></tr>';

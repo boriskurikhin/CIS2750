@@ -2023,6 +2023,12 @@ char* eventToJSON(const Event* event) {
     strcat(json, startDate);
     free(startDate);
 
+    char * stampDate = dtToJSON(event->creationDateTime);
+    json = (char *) realloc(json, strlen(json) + 20 + strlen(stampDate));
+    strcat(json, ",\"stampDate\":");
+    strcat(json, stampDate);
+    free(stampDate);
+
     /* Move on to counting props */
     json = (char *) realloc(json, strlen(json) + 13);
     strcat(json, ",\"numProps\":");
@@ -2063,6 +2069,10 @@ char* eventToJSON(const Event* event) {
     }
 
     char * props = propertyListToJSON(event->properties);
+
+    json = (char *) realloc(json, strlen(json) + strlen(event->UID) + 20);
+    strcat(json, "\",\"UID\":\"");
+    strcat(json, event->UID);
 
     json = (char *) realloc(json, strlen(json) + 20 + strlen(props));
     strcat(json, "\",\"props\":");
