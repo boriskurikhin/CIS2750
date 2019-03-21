@@ -109,7 +109,7 @@ app.get('/',function(req,res){
 
 // Send obfuscated JS, do not change
 app.get('/index.js',function(req,res){
-  fs.readFile(path.join(__dirname+'/public/index.js'), 'utf8', function(err, contents) {
+  fs.readFile(path.join(__dirname + '/public/index.js'), 'utf8', function(err, contents) {
     const minimizedContents = JavaScriptObfuscator.obfuscate(contents, {compact: true, controlFlowFlattening: true});
     res.contentType('application/javascript');
     res.send(minimizedContents._obfuscatedCode);
@@ -180,7 +180,7 @@ app.post('/uploads', function(req, res) {
   let uploadFile = req.files.uploadFile;
 
 // Use the mv() method to place the file somewhere on your server
-  uploadFile.mv('uploads/' + uploadFile.name, function(err) {
+  uploadFile.mv(path.join(__dirname + '/uploads/' + uploadFile.name), function(err) {
     /* Test the file */
     let errCode = getError(uploadFile.name);
     if ( err ||  errCode !== 'OK') {
@@ -197,7 +197,7 @@ app.post('/uploads', function(req, res) {
 
 //Respond to GET requests for files in the uploads/ directory
 app.get('/uploads/:name', function(req , res){
-  fs.stat('uploads/' + req.params.name, function(err, stat) {
+  fs.stat(path.join(__dirname + '/uploads/' + req.params.name), function(err, stat) {
     console.log(err);
     if(err == null) {
       res.sendFile(path.join(__dirname+'/uploads/' + req.params.name));

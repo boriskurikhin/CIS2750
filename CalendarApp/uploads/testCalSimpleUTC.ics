@@ -4,11 +4,6 @@ PRODID:-//hacksw/handcal//NONSGML v1.0//EN
 BEGIN:VEVENT
 UID:uid1@example.com
 DTSTAMP:19970714T170000Z
-ORGANIZER;CN=Jimmy Johnson:
- MAILTO:john.doe@example.com
 DTSTART:19970714T170000Z
-DTEND:19970715T035959Z
-CLASS:PUBLIC
-SUMMARY:Lorem ipsum dolor sit amet, consectetur adipiscing elit.
 END:VEVENT
 END:VCALENDAR

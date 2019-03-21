@@ -1,8 +1,15 @@
 var fileCount = 1;
 var calendars = {};
 
+jQuery.fn.scrollTo = function(elem, speed) { 
+  $(this).animate({
+      scrollTop:  $(this).scrollTop() - $(this).offset().top + $(elem).offset().top 
+  }, speed == undefined ? 1000 : speed); 
+  return this; 
+};
+
 $(document).ready(function() {
-  fileLog();
+  fileLog(true);
   $('select').formSelect();
   $('.datepicker').datepicker();
   $('.timepicker').timepicker();
@@ -133,13 +140,17 @@ function pushError(errorMsg, errorCode) {
   if ( $('#status').hasClass('green') ) {
     $('#status').toggleClass('green red');
   }
-  $('#errorList').append('<li class="collection-item">' + errorMsg + ' Code: ' + '<b>' + errorCode + '!</b></li>');
+  let errorNum = $("#errorList").children().length + 1;
+  $('#errorList').append('<li id="error_' + errorNum + '" class="collection-item">' + errorMsg + ' Code: ' + '<b>' + errorCode + '!</b></li>');
   $([document.documentElement, document.body]).animate({
     scrollTop: $('#status').offset().top,
   }, 2000, function() {
-  for (let i = 0; i < 3; i++) {
-    $('#statuspanel').fadeOut(100).fadeIn(100);
-  }});
+    $("#errorList").parent().parent().animate({scrollTop: $('ul#errorList li:last').offset().top - 30}, 333, function() {
+      for (let i = 0; i < 3; i++) {
+        $('#statuspanel').fadeOut(100).fadeIn(100);
+      }
+    });
+ });
 }
 
 $('#btnClear').click(function() {
@@ -285,7 +296,7 @@ function addprop ( to, eventnum ) {
 }
 
 /* Updates the file log */
-function fileLog() {
+function fileLog(firstTime) {
   /* Clear */
   $('#statusMessage').empty();
   $('#filelogbody').empty();
@@ -312,6 +323,12 @@ function fileLog() {
         $('#caldropdown').append('<option value="' + obj['filename'] + '">' + obj['filename'] + '</option>');
       });
       $('select').formSelect();
+    },
+    complete: function(data) {
+      $('#statuspanel').css({
+        'height' : $('#fileLog').height() + 'px',
+        'overflow' : 'scroll'
+      });
     }
   });
 }
