@@ -1,4 +1,4 @@
-#Calendar App - CIS*2750
+# Calendar App - CIS*2750
 
 This app was created for CIS*2750, a second year Software Systems Development & Integration course at University of Guelph.
 This is an iCalendar application, meaning:
