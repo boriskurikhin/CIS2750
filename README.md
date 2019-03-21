@@ -9,4 +9,4 @@ This is an iCalendar application, meaning:
 
 Here's what it looks like
 
-![What the app looks like](calendargif.gif)
+<img src="calendargif.gif" width="100%">
