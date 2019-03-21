@@ -243,9 +243,7 @@ $('#createcalendar').click(function() {
       
       $([document.documentElement, document.body]).animate({
         scrollTop: $('#filelogpanel').offset().top,
-      }, 2000, function() {
-
-      });
+      }, 2000);
 
     }).fail(function(err) {
       pushError('Could not upload file', err['responseText']);

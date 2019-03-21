@@ -154,12 +154,21 @@ app.post('/create', function(req, res) {
   content += 'END:VCALENDAR\r\n';
 
   fs.writeFile(path.join(__dirname + '/uploads/' + json['name'] + '.ics'), content, function(err) {
+    
     if (err) {
       return res.status(400).send('Could not create file on the server!');
     }
+
+    let createAttempt = getError(json['name'] + '.ics');
+
+    if ( createAttempt !== 'OK') {
+      fs.unlink(path.join(__dirname + '/uploads/' + json['name'] + '.ics'), function() { console.log('Attempted delete ' + json['name'])});
+      return res.status(400).send(createAttempt);
+    } else {
+      return res.status(200).send('Nice bruv');
+    }
   });
 
-  return res.status(200).send('Nice bruv');
 });
 
 //Respond to POST requests that uploads files to uploads/ directory
@@ -175,7 +184,9 @@ app.post('/uploads', function(req, res) {
     /* Test the file */
     let errCode = getError(uploadFile.name);
     if ( err ||  errCode !== 'OK') {
-      console.log(errCode);
+      fs.unlink(path.join(__dirname + '/uploads/' + uploadFile.name), function() {
+        console.log('Attempted to delete ' + uploadFile.name);
+      });
       return res.status(500).send(errCode);
     }
 
