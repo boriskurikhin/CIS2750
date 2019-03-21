@@ -32,13 +32,16 @@ let CalendarPtr = ref.refType(Calendar);
 let CalendarPtrPtr = ref.refType(CalendarPtr);
 
 //Create the mapping from C
-let parserLib = ffi.Library("./parser/bin/libcal.so", {
+let parserLib = ffi.Library("./libcal.so", {
   "createCalendar" : [ICalErrorCode, ["string", CalendarPtrPtr] ],
   "calendarToJSON" : ["string", [CalendarPtr]],
   "printError" : ["string", [ICalErrorCode]],
   "validateCalendar" : [ICalErrorCode, [CalendarPtr]],
   "eventListToJSONWrapper" : ["string", [CalendarPtr]],
-  "alarmListToJSONWrapper" : ["string", [CalendarPtr, ref.types.int]]
+  "alarmListToJSONWrapper" : ["string", [CalendarPtr, ref.types.int]],
+  "deleteCalendar" : [ref.types.void, [CalendarPtr]],
+  "JSONtoEventWrapper": [ref.types.void, [CalendarPtr, "string"]],
+  "writeCalendar" : [ICalErrorCode, ["string", CalendarPtr]]
 });
 
 function getCalendar(filename) {
@@ -52,12 +55,39 @@ function getCalendar(filename) {
     for (var i = 0; i < retObj['eventList'].length; i++) {
       retObj['eventList'][i]['alarms'] = JSON.parse(parserLib.alarmListToJSONWrapper(calendar.deref(), i + 1));
     }
+    parserLib.deleteCalendar(calendar.deref());
     return retObj;
   } else {
     /* Else return a NULL */
     return null;
   }
 }
+
+function addEventToCalendar(json) {
+  let calendar = ref.alloc(CalendarPtrPtr);
+  let name = "./uploads/" + json['filename'] + '.ics';
+  let obj = parserLib.createCalendar(name, calendar);
+
+  let filename = json['filename'] + '.ics';
+
+  console.log(JSON.stringify(json));
+
+  if (getError(filename) === 'OK') {
+    delete json['filename'];
+    parserLib.JSONtoEventWrapper(calendar.deref(), JSON.stringify(json));
+    let writeStatus = parserLib.writeCalendar('uploads/' + filename, calendar.deref());
+    parserLib.deleteCalendar(calendar.deref());
+    /* Check */
+    console.log(parserLib.printError(writeStatus));
+    if (parserLib.printError(writeStatus) === 'OK') {
+      console.log('Successfully added event and wrote calendar!');
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+}
+
 
 function getError(filename) {
   let calendar = ref.alloc(CalendarPtrPtr);
@@ -67,7 +97,9 @@ function getError(filename) {
   if (parserLib.printError(obj) !== 'OK') {
     return parserLib.printError(obj);
   } else {
-    return parserLib.printError(parserLib.validateCalendar(calendar.deref()));
+    let result = parserLib.printError(parserLib.validateCalendar(calendar.deref()));
+    parserLib.deleteCalendar(calendar.deref());
+    return result;
   }
 }
 
@@ -92,10 +124,18 @@ app.get('/index.js',function(req,res){
   });
 });
 
+app.post('/addevent', function(req, res) {
+  let json = req.body;
+  if (addEventToCalendar(req.body) === 1) {
+    res.status(200).send('Success!');
+  } else {
+    res.status(400).send('Could not write to file!');
+  }
+});
+
 app.post('/create', function(req, res) {
   
   let json = req.body;
-  console.log(json);
 
   var content = 'BEGIN:VCALENDAR\r\n';
 

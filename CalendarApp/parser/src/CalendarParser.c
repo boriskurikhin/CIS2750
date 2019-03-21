@@ -27,6 +27,7 @@ char* alarmListToJSON(const List* al);
 char* alarmListToJSONWrapper(const Calendar * cal, int eventNumber);
 char * propertyToJSON(const Property * prop);
 char * propertyListToJSON(const List * pl);
+void JSONtoEventWrapper(Calendar * cal, char * json);
 
 
 const char eventprops[25][30] = { "CLASS1", "CREATED1", "DESCRIPTION1", "GEO1", "LAST-MODIFIED1", "LOCATION1", "ORGANIZER1", "PRIORITY1",
@@ -2381,6 +2382,11 @@ Calendar* JSONtoCalendar(const char* str) {
     return cal;
 }
 
+void JSONtoEventWrapper(Calendar * cal, char * json) {
+    Event * e = JSONtoEvent(json);
+    addEvent(cal, e);
+}
+
 /* Converts a JSON string into an Event */
 Event * JSONtoEvent(const char* str) {
     if (str == NULL || !strlen(str) || str[0] != '{' || str[strlen(str) - 1] != '}') return NULL;
@@ -2398,6 +2404,7 @@ Event * JSONtoEvent(const char* str) {
             int k = 0;
             /* make sure we actually have a UID and nothing else!!! */
             if (i - 5 > 0) {
+                k = 0;
                 if (str[i - 1] == '"' && str[i - 2] == 'D' && str[i - 3] == 'I' && str[i - 4] == 'U' && str[i - 5] == '"' && str[i + 1] == '"') {
                     for (int j = i + 2; j < strlen(str) && str[j] != '"'; j++)
                         event->UID[k++] = str[j];
@@ -2410,7 +2417,34 @@ Event * JSONtoEvent(const char* str) {
                     }
                     foundUID = 1;
                 }
+            } 
+            
+            if (i - 7 > 0) {
+                k = 0;
+                if (str[i-1] == '"' && str[i-2] == 'e' && str[i-3] == 't' && str[i-4] == 'a' && str[i-5] == 'd' && str[i-6] == 's' && str[i-7] == '"') {
+                    for (int j = i + 2; j < strlen(str) && str[j] != '"'; j++)
+                        event->startDateTime.date[k++] = str[j];
+                    event->startDateTime.date[k] = '\0';
+                } else if (str[i-1] == '"' && str[i-2] == 'e' && str[i-3] == 'm' && str[i-4] == 'i' && str[i-5] == 't' && str[i-6] == 's' && str[i-7] == '"') {
+                    for (int j = i + 2; j < strlen(str) && str[j] != '"'; j++)
+                        event->startDateTime.time[k++] = str[j];
+                    event->startDateTime.time[k] = '\0';
+                }
+            } 
+            
+            if (i - 8 > 0) {
+                k = 0;
+                if (str[i-1] == '"' && str[i-2] == '2' && str[i-3] == 'e' && str[i-4] == 'm' && str[i-5] == 'i' && str[i-6] == 't' && str[i - 7] == 's' && str[i-8] == '"') {
+                    for (int j = i + 2; j < strlen(str) && str[j] != '"'; j++)
+                        event->creationDateTime.time[k++] = str[j];
+                    event->creationDateTime.time[k] = '\0';
+                } else if (str[i-1] == '"' && str[i-2] == '2' && str[i-3] == 'e' && str[i-4] == 't' && str[i-5] == 'a' && str[i-6] == 'd' && str[i - 7] == 's' && str[i-8] == '"') {
+                    for (int j = i + 2; j < strlen(str) && str[j] != '"'; j++)
+                        event->creationDateTime.date[k++] = str[j];
+                    event->creationDateTime.date[k] = '\0';
+                }
             }
+
         }
     }
     if (!foundUID || quote) {

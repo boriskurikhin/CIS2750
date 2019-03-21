@@ -5,8 +5,8 @@ $(document).ready(function() {
   fileLog();
   $('select').formSelect();
   $('.datepicker').datepicker();
-  $('.timepicker').timepicker();  
- 
+  $('.timepicker').timepicker();
+
   /* This is where we will re-render the calendar */
   $('#caldropdown').on('change', function() {
     $('#calview').empty();
@@ -32,7 +32,18 @@ $(document).ready(function() {
       }
     }
     caltable += '</tbody></table>';
-    $('#calview').append(caltable);
+
+    let eventForm = '<div class="row"><div class="input-field col s5"><input type="text" ';
+    eventForm += 'id="add_event_uid" class="input-field">';
+    eventForm += '<label for="add_event_uid">UID</label></div><div class="input-field col s3">';
+    eventForm += '<input type="text" id="add_event_dtstart_date" class="datepicker"><label for="add_event_dtstart_date">Start Date</label>';
+    eventForm += '</div><div class="input-field col s3"><input type="text" id="add_event_dtstart_time"';
+    eventForm += 'class="timepicker"><label for="add_event_dtstart_time">Start Time</label></div><div class="input-field col s1"><button id="createeventbtn" class="btn-floating btn-small grey darken-2" onclick="_createEvent()">+</button></div></div>';
+    
+    $('#calview').append(caltable + eventForm);
+    $('#add_event_dtstart_date').datepicker();
+    $('#add_event_dtstart_time').timepicker();
+
   });
 });
 
@@ -42,6 +53,51 @@ function formatDate(datestring) {
 
 function formatTime(timestring) {
   return timestring.substring(0, 2) + ':' + timestring.substring(2, 4) + ':' + timestring.substring(4);
+}
+
+function _createEvent() {
+  let UID = $('#add_event_uid').val();
+  let filename = $('#caldropdown').val().replace('.ics', '');
+  
+  if (filename.length === 0 || filename === 'Choose a file') {
+    pushError('Cannot add event!', 'Bad filename');
+    return;
+  }
+
+  if (UID.length === 0 || UID.length > 1000 ) {
+    pushError('Cannot add event!', 'UID is invalid.');
+    return;
+  }
+
+  let today = new Date();
+  let dtstamp = new String(today.getFullYear()) + new String(today.getMonth() + 1).padStart(2, '0') + new String(today.getDate()).padStart(2, '0') + 'T' + new String(today.getHours()).padStart(2, '0') + new String(today.getMinutes()).padStart(2, '0') + new String(today.getSeconds()).padStart(2, '0');
+  let startdate = $('#add_event_dtstart_date').val();
+  let starttime = $('#add_event_dtstart_time').val();
+
+  if (startdate.length == 0 || starttime.length == 0) {
+    pushError('Cannot add event!', 'Invalid start date/time!');
+    return;
+  }
+
+  let dtstartraw = new Date(startdate + ' ' + starttime);
+  let dtstart = new String(dtstartraw.getFullYear()) + new String(dtstartraw.getMonth() + 1).padStart(2, '0') + new String(dtstartraw.getDate()).padStart(2, '0') + 'T' + new String(dtstartraw.getHours()).padStart(2, '0') + new String(dtstartraw.getMinutes()).padStart(2, '0') + new String(dtstartraw.getSeconds()).padStart(2, '0');
+
+  let json = {
+    'UID' : UID,
+    'sdate' : dtstart.split('T')[0],
+    'stime' : dtstart.split('T')[1],
+    'sdate2' : dtstamp.split('T')[0],
+    'stime2' : dtstamp.split('T')[1],
+    'filename' : filename
+  }
+
+  $.post('/addevent', json).done(function(result) {
+    fileLog();
+    $('#calview').empty();
+    alert('Done! Please select <b>' + filename + '.ics</b> again to see the new event!');
+  }).fail(function(err) {
+    pushError('Could not upload file', err['responseText']);
+  });
 }
 
 $('#addevent').click( function() {
@@ -60,17 +116,16 @@ $('#addevent').click( function() {
   
   /* Deleting event */
   eventText += '</form></div>';
-  eventText += '<div class="row"><div class="col s12 right-align"><button class="btn-flat" onclick="$(\'.event_' + num + '\').remove()">Delete Event</button></div></div>';
   
   /* Event props */
-  eventText += '<div id="event_' + num + '_props"></div><div class="row"><div class="col s12 right-align"><button class="btn-flat" onclick="addprop(\'event_' + num + '_props\', ' + num + ')">ADD PROP</button></div></div>';
-
+  eventText += '<div id="event_' + num + '_props"></div><div class="row"><div class="col s10 right-align"><button class="btn-flat" onclick="addprop(\'event_' + num + '_props\', ' + num + ')">ADD PROP</button></div><div class="col s2 right-align"><button class="btn-flat" onclick="$(\'.event_' + num + '\').remove()">Delete Event</button></div></div>';
   eventText += '</div></div>';
   /* Finally..*/
   $('#events').append(eventText);
   /* Update the pickers */
   $('.datepicker').datepicker();
   $('.timepicker').timepicker();
+
 });
 
 function pushError(errorMsg, errorCode) {
@@ -79,6 +134,12 @@ function pushError(errorMsg, errorCode) {
     $('#status').toggleClass('green red');
   }
   $('#errorList').append('<li class="collection-item">' + errorMsg + ' Code: ' + '<b>' + errorCode + '!</b></li>');
+  $([document.documentElement, document.body]).animate({
+    scrollTop: $('#status').offset().top,
+  }, 2000, function() {
+  for (let i = 0; i < 3; i++) {
+    $('#statuspanel').fadeOut(100).fadeIn(100);
+  }});
 }
 
 $('#btnClear').click(function() {
@@ -157,6 +218,8 @@ $('#createcalendar').click(function() {
     console.log(result);
     $.post('/create', result).done(function(result) {
       fileLog();
+    }).fail(function(err) {
+      pushError('Could not upload file', err['responseText']);
     });
   }
 });
@@ -221,6 +284,7 @@ function fileLog() {
         $('#filelogbody').append(row);
         $('#caldropdown').append('<option value="' + obj['filename'] + '">' + obj['filename'] + '</option>');
       });
+      $('select').formSelect();
     }
   });
 }
