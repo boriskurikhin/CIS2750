@@ -94,7 +94,7 @@ function _createEvent() {
   $.post('/addevent', json).done(function(result) {
     fileLog();
     $('#calview').empty();
-    alert('Done! Please select <b>' + filename + '.ics</b> again to see the new event!');
+    alert('Done! Please select ' + filename + '.ics again to see the new event!');
   }).fail(function(err) {
     pushError('Could not upload file', err['responseText']);
   });
@@ -149,13 +149,35 @@ $('#btnClear').click(function() {
   $('#errorList').empty();
 });
 
+function clearCreateCalendar() {
+  let numEvents = $('#events').children().length;
+  if (numEvents > 1) {
+    /* Remove all events */
+    for (let i = 2; i <= numEvents; i++) {
+      $('.event_' + i).remove();
+    }
+    /* Clearo out these boys too */
+  }
+  if ($('#event_1_props').children().length > 0) {
+    $('#event_1_props').empty();
+  }
+  $('#new_name').val("");
+  $('#new_prodid').val("");
+  $('#event_1_uid').val("");
+  $('#event_1_dtstart_date').val('');
+  $('#event_1_dtstart_time').val('');
+  $('#new_version').val('2');
+  $('.datepicker').datepicker();
+  $('.timepicker').timepicker();
+}
+
 $('#createcalendar').click(function() {
   let name = $('#new_name').val();
   let version = $('#new_version').val();
   let prodId = $('#new_prodid').val();
   let result = {};
 
-  if (name.length === 0 || name.length > 100 || name.includes('.')) {
+  if (name.length === 0 || name.length > 100 || name.includes('.') || name.includes(' ')) {
     pushError('Could not create calendar!', 'Invalid name');
   } else if (version.length === 0 || isNaN(version) ) {
     pushError('Could not create calendar!', 'Invaid version');
@@ -218,6 +240,13 @@ $('#createcalendar').click(function() {
     console.log(result);
     $.post('/create', result).done(function(result) {
       fileLog();
+      
+      $([document.documentElement, document.body]).animate({
+        scrollTop: $('#filelogpanel').offset().top,
+      }, 2000, function() {
+
+      });
+
     }).fail(function(err) {
       pushError('Could not upload file', err['responseText']);
     });

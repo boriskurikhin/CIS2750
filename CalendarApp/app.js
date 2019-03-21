@@ -88,7 +88,6 @@ function addEventToCalendar(json) {
   }
 }
 
-
 function getError(filename) {
   let calendar = ref.alloc(CalendarPtrPtr);
   let name = "./uploads/" + filename;
@@ -103,16 +102,9 @@ function getError(filename) {
   }
 }
 
-
 // Send HTML at root, do not change
 app.get('/',function(req,res){
   res.sendFile(path.join(__dirname+'/public/index.html'));
-});
-
-// Send Style, do not change
-app.get('/style.css',function(req,res){
-  //Feel free to change the contents of style.css to prettify your Web app
-  res.sendFile(path.join(__dirname+'/public/style.css'));
 });
 
 // Send obfuscated JS, do not change
