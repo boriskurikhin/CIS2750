@@ -1860,6 +1860,9 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
                 }
                 prop = nextElement(&propertyIterator);
             }
+            /* if ( !hasDuration && !hasEnd ) {
+                 return INV_EVENT;
+            } */
         }
 
         /* If there exist some alarms, loop through them and verify */
@@ -1919,7 +1922,7 @@ ICalErrorCode validateCalendar(const Calendar* obj) {
                     }
                 }
                 /* One can't appear without the other */
-                if (duration ^ repeat) {
+                if (!(!duration) ^ !(!repeat)) {
                     #if DEBUG
                         printf("Error! Duration can't appear without repeat && vice-versa!\n");
                     #endif

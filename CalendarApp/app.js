@@ -92,13 +92,18 @@ function getError(filename) {
   let calendar = ref.alloc(CalendarPtrPtr);
   let name = "./uploads/" + filename;
   let obj = parserLib.createCalendar(name, calendar);
-  /* Validate that the Calendar parsed okay */
-  if (parserLib.printError(obj) !== 'OK') {
-    return parserLib.printError(obj);
+
+  let errorCode = parserLib.printError(obj);
+
+  if (errorCode === 'OK') {
+    errorCode = parserLib.printError(parserLib.validateCalendar(calendar.deref()));
+    if (errorCode === 'OK') {
+      return 'OK';
+    } else {
+      return errorCode;
+    }
   } else {
-    let result = parserLib.printError(parserLib.validateCalendar(calendar.deref()));
-    parserLib.deleteCalendar(calendar.deref());
-    return result;
+    return errorCode;
   }
 }
 
