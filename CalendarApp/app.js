@@ -4,7 +4,6 @@
 
 // C library API
 const ffi = require('ffi');
-
 // Express App (Routes)
 const express = require("express");
 const app     = express();
@@ -174,6 +173,11 @@ app.post('/create', function(req, res) {
     }
   });
 
+});
+
+app.post('/connect', function(req, res) {
+  console.log('user: ' + req.body.username);
+  return res.status(200).send('Gucci');
 });
 
 //Respond to POST requests that uploads files to uploads/ directory

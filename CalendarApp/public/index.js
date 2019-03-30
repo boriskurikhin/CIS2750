@@ -145,7 +145,7 @@ function pushError(errorMsg, errorCode) {
     $('#status').toggleClass('green red');
   }
   let errorNum = $("#errorList").children().length + 1;
-  $('#errorList').append('<li id="error_' + errorNum + '" class="collection-item">' + errorMsg + ' Code: ' + '<b>' + errorCode + '!</b></li>');
+  $('#errorList').append('<li id="error_' + errorNum + '" class="collection-item">' + errorMsg + ' <b>Code</b>: '  + errorCode + '!</li>');
   $([document.documentElement, document.body]).animate({
     scrollTop: $('#status').offset().top,
   }, 2000, function() {
@@ -264,6 +264,38 @@ $('#createcalendar').click(function() {
       pushError('Could not upload file', err['responseText']);
     });
   }
+});
+
+$('#btnLogin').click(function() {
+  $('#login_form').slideToggle();
+});
+
+$('#btnConnect').click(function() {
+  //gotta double check stuff
+  let username = $('#login_username').val();
+  let password = $('#login_password').val();
+  let dbname = $('#login_dbname').val();
+  if (username.length == 0) {
+    pushError('Error in connection form!', 'Invalid username length');
+    return;
+  } else if (password.length == 0) {
+    pushError('Error in connection form!', 'Invalid password length');
+    return;
+  } else if (dbname.length == 0) {
+    pushError('Error in connection form!', 'Invalid database name length');
+    return;
+  }
+
+  let result = {
+    'username' : username,
+    'password' : password,
+    'dbname' : dbname
+  }
+  $.post('/connect', result).done(function(result) {
+    //on success...
+  }).fail(function(err) {
+    pushError('Could not connect to ' + dbname + '!', err['responseText']);
+  });
 });
 
 $('#btnFile').on('change', function() {
