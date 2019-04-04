@@ -13,6 +13,7 @@ $(document).ready(function() {
   $('select').formSelect();
   $('.datepicker').datepicker();
   $('.timepicker').timepicker();
+  $('.dropdown-trigger').dropdown();
 
   /* This is where we will re-render the calendar */
   $('#caldropdown').on('change', function() {
@@ -141,11 +142,11 @@ $('#addevent').click( function() {
 
 function pushError(errorMsg, errorCode) {
   /* A visual to see if there are any erorrs */
-  if ( $('#status').hasClass('green') ) {
+  if ( errorCode !== 'OK' && $('#status').hasClass('green') ) {
     $('#status').toggleClass('green red');
   }
   let errorNum = $("#errorList").children().length + 1;
-  $('#errorList').append('<li id="error_' + errorNum + '" class="collection-item">' + errorMsg + ' <b>Code</b>: '  + errorCode + '!</li>');
+  $('#errorList').append('<li id="error_' + errorNum + '" class="collection-item' + (errorCode === 'OK' ? ' green lighten-3 ' : '') + '">' + errorMsg + ' <b>Code</b>: '  + errorCode + '!</li>');
   $([document.documentElement, document.body]).animate({
     scrollTop: $('#status').offset().top,
   }, 2000, function() {
@@ -292,11 +293,27 @@ $('#btnConnect').click(function() {
     'dbname' : dbname
   }
   $.post('/connect', result).done(function(result) {
-    //on success...
+    alert('You have connected!');
+    $('#dbdropdown').children().remove();
+    $('#dbdropdown').append('<li><a id="btnStore">Save Files</a></li><li><a id="btnErase">Clear</a></li><li><a id="btnStatus" onclick="get_status();">Status</a></li><li><a id="btnQuery">Query</a></li>');
   }).fail(function(err) {
     pushError('Could not connect to ' + dbname + '!', err['responseText']);
   });
 });
+
+function get_status() {
+  $.ajax({
+    type: "GET",
+    url: "/dbstatus",
+    dataType: "JSON",
+    success: function(res) {
+      pushError('Database has ' + res['FILE'] + ' files, ' + res['EVENT'] + ' events, and ' + res['ALARM'] + ' alarms.', 'OK');
+    },
+    error: function(err) {
+      pushError(err);
+    }
+  });
+}
 
 $('#btnFile').on('change', function() {
   if ($('#btnFile').val() !== '') {

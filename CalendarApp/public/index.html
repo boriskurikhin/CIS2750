@@ -13,11 +13,14 @@
   </head>
   <body style>
     <!-- Navbar -->
+    <ul id='dbdropdown' class='dropdown-content'>
+      <li><a id="btnLogin">Connect</a></li>
+    </ul>
     <nav class="grey darken-2">
       <div class="nav-wrapper container">
         <a href="#" class="brand-logo center">iCalendar</a>
         <ul id="nav-mobile" class="left hide-on-med-and-down">
-          <li><a id="btnLogin" href="#">Show Login</a></li>
+          <li><a class='dropdown-trigger btn grey darken-2' href='#' data-target='dbdropdown'>DB Tools</a></li>
         </ul>
         <div id="loginDialog"></div>
       </div>
