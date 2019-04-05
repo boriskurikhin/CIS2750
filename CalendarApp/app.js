@@ -53,23 +53,22 @@ function createFileTable() {
   query += 'prod_id VARCHAR(256) NOT NULL );';
   if (connection) {
     connection.query(query);
-    insert_file('coolfile', {
-      'version' : 2,
-      'prodId' : 'super yeet',
-      'events' : [
-        {
-          'summary' : 'first event',
-          'start_time' : '12-mar-2013',
-          'location' : 'russia',
-          'organzier' : 'boris',
-          'cal_file' : 1
-        }
-      ]
-    })
   }
 }
 
+function find_prop(propArray, tofind) {
+  for (let i = 0; i < propArray.length; i++) {
+    if (propArray[i].propName.toLowerCase() === tofind.toLowerCase()) {
+      return propArray[i].propDescr;
+    }
+  }
+  return undefined;
+}
+
 function insert_file(filename, data) {
+  
+  console.log(data);
+
   if (connection) {
     let found = false;
     connection.query( 'SELECT * FROM FILE WHERE file_Name = "' + filename + '"', (error, result) => {
@@ -81,25 +80,42 @@ function insert_file(filename, data) {
         //so if we don't already have this record
         if (!found) {
           //insert the file thing
-          let qr = 'INSERT INTO FILE (file_Name, version, prod_id) VALUES (\'' + filename + '\', ' + data.version + ', \'' + data.prodId + '\');';
+          let qr = 'INSERT INTO FILE (file_Name, version, prod_id) VALUES (\'' + filename + '\', ' + data.version + ', \'' + data.prodID + '\');';
           connection.query(qr, (error, result) => {
             if (error) {
               console.log(error);
               return;
             } else {
-              let numEvents = data.events.length;
+              
               let no_errors = true;
-              for (var i = 0; i < numEvents; i++) {
-                connection.query('INSERT INTO EVENT SET summary = "' + data.events[i].summary + '", start_time = "' + data.events[i].start_time + '", location = "' + data.events[i].location + '", organizer = "' + data.events[i].organizer + '", cal_file = (SELECT cal_id FROM FILE WHERE cal_id = ' + data.events[i].cal_file + ');', (error2, result2) => {
+              
+              for (let i = 0; i < data.numEvents; i++) {
+                
+                let numAlarms = data.eventList[i].alarms.length;
+                let summary = find_prop(data.eventList[i].props, 'summary') ? '"' + find_prop(data.eventList[i].props, 'summary') + '"' : 'NULL';
+                let start_time = '"' + data.eventList[i].startDT.date + data.eventList[i].startDT.time + '"';
+                let location = find_prop(data.eventList[i].props, 'location') ? '"' + find_prop(data.eventList[i].props, 'location') + '"' : 'NULL';
+                let organizer = find_prop(data.eventList[i].props, 'organizer') ? '"' + find_prop(data.eventList[i].props, 'organizer') + '"' : 'NULL';
+                
+                connection.query('INSERT INTO EVENT SET summary = ' + summary + ', start_time = ' + start_time + ', location = ' + location + ', organizer = ' + organizer + ', cal_file = (SELECT cal_id FROM FILE WHERE file_Name = "' + filename + '");', (error2, result2) => {
+                  
                   if (error2) {
                     console.log(error2);
-                    no_errors = false;
                     return;
                   }
+                  
+                  
+                  for (let j = 0; j < numAlarms; j++) {
+                    
+                    connection.query('INSERT INTO ALARM SET action = "' + data.eventList[i].alarms[j].action + '", `trigger`= "' + data.eventList[i].alarms[j].trigger + '", event = (SELECT event_id FROM EVENT WHERE event_id = ' + (i+1) + ');', (error3, result3) => {
+
+                      if (error3) {
+                        console.log(error3);
+                        return;
+                      }
+                    });
+                  }
                 });
-              }
-              if (no_errors) {
-                /* We can add alarms */
               }
             }
           });
@@ -128,11 +144,35 @@ function createAlarmTable() {
   let query = 'CREATE TABLE IF NOT EXISTS ALARM (';
   query += 'alarm_id INT AUTO_INCREMENT PRIMARY KEY, ';
   query += 'action VARCHAR(256) NOT NULL, ';
-  query += '_trigger VARCHAR(256) NOT NULL, ';
+  query += '`trigger` VARCHAR(256) NOT NULL, ';
   query += 'event INT NOT NULL, ';
   query += 'FOREIGN KEY (event) REFERENCES EVENT(event_id) ON DELETE CASCADE);';
   if (connection) {
-    connection.query(query);
+    connection.query(query, function(err, stat) {
+      /*
+      if (!err) {
+        insert_file('coolfile', {
+          version : 2,
+          prodId : 'super yeet',
+          eventList : [
+            {
+              summary : 'first event',
+              start_time : '2038-01-19 03:14:07',
+              location : 'russia',
+              organizer : 'boris',
+              cal_file : 1,
+              alarms : [
+                {
+                  action : 'AUDIO',
+                  trigger : 'swag',
+                  event : 1
+                }
+              ]
+            }
+          ]
+        });
+      } */
+    });
   }
 }
 
@@ -162,17 +202,13 @@ function addEventToCalendar(json) {
 
   let filename = json['filename'] + '.ics';
 
-  console.log(JSON.stringify(json));
-
   if (getError(filename) === 'OK') {
     delete json['filename'];
     parserLib.JSONtoEventWrapper(calendar.deref(), JSON.stringify(json));
     let writeStatus = parserLib.writeCalendar('uploads/' + filename, calendar.deref());
     parserLib.deleteCalendar(calendar.deref());
     /* Check */
-    console.log(parserLib.printError(writeStatus));
     if (parserLib.printError(writeStatus) === 'OK') {
-      console.log('Successfully added event and wrote calendar!');
       return 1;
     } else {
       return 0;
@@ -226,7 +262,6 @@ app.get('/dbstatus', function(req, res) {
     connection.query('select (select count(*) from FILE) as fc, (select count(*) from EVENT) as ec, (select count(*) from ALARM) as ac;', function(err, result) {
       if (err) res.status(400).send('Could not retrieve db status');
       else {
-        console.log(result);
         res.send( {'FILE' : result[0]['fc'], 'EVENT' : result[0]['ec'], 'ALARM' : result[0]['ac']});
       }
     });
@@ -300,6 +335,27 @@ app.post('/connect', function(req, res) {
       res.status(200).send('Success!');
     }
   })
+});
+
+app.get('/deleteallfiles', function(req, res) {
+  connection.query('DELETE FROM ALARM; DELETE FROM EVENT; DELETE FROM FILE; ALTER TABLE ALARM AUTO_INCREMENT = 1; ALTER TABLE EVENT AUTO_INCREMENT = 1; ALTER TABLE FILE AUTO_INCREMENT = 1;', [1,2,3,4,5,6], function(err, results) {
+    if (err) {
+      res.status(400).send('Unable to clear table!');
+    }
+    res.send('Success!');
+  });
+});
+
+app.get('/saveallfiles', function(req, res) {
+  fs.readdir('./uploads', (err, files) => {
+    files.forEach( file => {
+        var json = getCalendar(file);
+        if (json !== null) {
+          insert_file(file, json);
+        }
+    });
+    res.send('Success!');
+  });
 });
 
 //Respond to POST requests that uploads files to uploads/ directory
@@ -378,3 +434,4 @@ app.get('/getfile/:filename', function(req, res) {
 
 app.listen(portNum);
 console.log('Running app at localhost: ' + portNum);
+

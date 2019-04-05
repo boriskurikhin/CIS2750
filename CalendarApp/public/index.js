@@ -295,11 +295,38 @@ $('#btnConnect').click(function() {
   $.post('/connect', result).done(function(result) {
     alert('You have connected!');
     $('#dbdropdown').children().remove();
-    $('#dbdropdown').append('<li><a id="btnStore">Save Files</a></li><li><a id="btnErase">Clear</a></li><li><a id="btnStatus" onclick="get_status();">Status</a></li><li><a id="btnQuery">Query</a></li>');
+    $('#dbdropdown').append('<li><a id="btnStore" onclick="save_files();">Save Files</a></li><li><a id="btnErase" onclick="delete_files();">Clear</a></li><li><a id="btnStatus" onclick="get_status();">Status</a></li><li><a id="btnQuery">Query</a></li>');
+    $('#login_form').slideToggle();
   }).fail(function(err) {
     pushError('Could not connect to ' + dbname + '!', err['responseText']);
   });
 });
+
+function save_files() {
+  $.ajax({
+    type: "GET",
+    url: "/saveallfiles",
+    success: function(res) {
+      pushError('Successfully saved all files to DB!', 'OK');
+    },
+    error: function(err) {
+      pushError('Error!', 'Could not save files to DB');
+    }
+  });
+}
+
+function delete_files() {
+  $.ajax({
+    type: "GET",
+    url: "/deleteallfiles",
+    success: function(res) {
+      pushError('Successfully removed all files from DB!', 'OK');
+    },
+    error: function(err) {
+      pushError('Error!', 'Could not remove files from DB');
+    }
+  });
+}
 
 function get_status() {
   $.ajax({
@@ -361,12 +388,27 @@ function fileLog(firstTime) {
     dataType: "JSON",
     success: function(res) {
       //Show how many files there are on the server
+      
+      $.ajax({
+        type: "GET",
+        url: "/dbstatus",
+        dataType: "JSON",
+        success: function(res) {
+          if (res['FILE'] > 0) {
+            $('#btnClear').show();
+          } else {
+            $('#btnClear').hide();
+          }
+        }
+      });
+
       if (res['numFiles'] == 0 ) {
         $('#statusMessage').append('There are <span class="pink-text">NO</span> valid files on the server.');
       } else {
         $('#statusMessage').append('There are <span class="pink-text">' + res['numFiles'] + '</span> valid files on the server.');
       }
       fileCount = res['numFiles'];
+      console.log(res);
       //Append them
       res['files'].forEach(obj => {
         /* Show in file log panel only if it's valid */
