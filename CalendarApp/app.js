@@ -65,7 +65,7 @@ function find_prop(propArray, tofind) {
   return undefined;
 }
 
-function insert_file(filename, data) {
+function insert_file(filename, data, eventsPrior) {
   
   console.log(data);
 
@@ -103,11 +103,12 @@ function insert_file(filename, data) {
                     console.log(error2);
                     return;
                   }
-                  
-                  
+
+                  console.log('Event #' + (eventsPrior + i + 1) + " has " + numAlarms + ' alarms with summary: ' + summary)
+
                   for (let j = 0; j < numAlarms; j++) {
                     
-                    connection.query('INSERT INTO ALARM SET action = "' + data.eventList[i].alarms[j].action + '", `trigger`= "' + data.eventList[i].alarms[j].trigger + '", event = (SELECT event_id FROM EVENT WHERE event_id = ' + (i+1) + ');', (error3, result3) => {
+                    connection.query('INSERT INTO ALARM SET action = "' + data.eventList[i].alarms[j].action + '", `trigger`= "' + data.eventList[i].alarms[j].trigger + '", event = ' + (eventsPrior + i + 1) + ';', (error3, result3) => {
 
                       if (error3) {
                         console.log(error3);
@@ -115,6 +116,7 @@ function insert_file(filename, data) {
                       }
                     });
                   }
+
                 });
               }
             }
@@ -316,9 +318,10 @@ app.post('/create', function(req, res) {
 app.post('/query', function(req, res) {
   let qnum = req.body.qnum;
   let table = {
-    '1': 'SELECT event_id, summary, start_time, location, organizer FROM EVENT ORDER BY UNIX_TIMESTAMP(start_time) DESC;',
+    '1': 'SELECT * FROM EVENT ORDER BY UNIX_TIMESTAMP(start_time) DESC;',
     '2': 'SELECT event_id, summary, start_time FROM EVENT WHERE cal_file = (SELECT cal_id FROM FILE WHERE file_Name = "' + req.body.filename + '" );',
-    '3': 'SELECT event_id, summary, start_time, organizer FROM EVENT WHERE start_time IN (SELECT start_time FROM EVENT GROUP BY start_time HAVING COUNT(*) > 1) ORDER BY UNIX_TIMESTAMP(start_time) DESC;'
+    '3': 'SELECT * FROM EVENT WHERE start_time IN (SELECT start_time FROM EVENT GROUP BY start_time HAVING COUNT(*) > 1) ORDER BY UNIX_TIMESTAMP(start_time) DESC;',
+    '4': 'SELECT * FROM EVENT et WHERE EXISTS (SELECT event FROM ALARM at WHERE at.event = et.event_id);'
   }
   connection.query(table[new String(qnum)], (err, response) => {
     if (err) res.status(400).send('There occured an error on the server.');
@@ -361,10 +364,12 @@ app.get('/deleteallfiles', function(req, res) {
 
 app.get('/saveallfiles', function(req, res) {
   fs.readdir('./uploads', (err, files) => {
+    let prior = 0;
     files.forEach( file => {
         var json = getCalendar(file);
         if (json !== null) {
-          insert_file(file, json);
+          insert_file(file, json, prior);
+          prior += json.numEvents;
         }
     });
     res.send('Success!');
