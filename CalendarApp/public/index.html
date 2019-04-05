@@ -51,6 +51,61 @@
         </div>
       </div>
     </div>
+    
+    <div id="query_form" class="row"><!-- style="display: none">-->
+      <div class="col s12">
+        <div class="card">
+          <div class="card-content">
+            <!--div  class="row left-align">
+              <h6>Query Panel</h6>
+              <p>Here, you are able to send queries to the database to further inspect the files.</p>
+            </div-->
+            <div class="row">
+              <div class="center-align">
+                <h6>Query Panel</h6>
+              </div>
+              <div class="col s12" id="query_output">
+                <label for="query_textarea">Query Output</label>
+                <textarea readonly id="query_textarea" class="materialize-textarea"></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="card-action">
+            <div class="row">
+              <div class="col s2">
+                <h6>Events by <b>Start Date</b></p>
+              </div>
+              <div class="col s2">
+                  <h6>Events from <b>File</b></p>
+                  <label for="query_file">File name</label>  
+                  <input id="query_file" type="text">
+              </div>
+              <div class="col s2">
+                <h6><b>Conflicting</b> Events</h6>
+              </div>
+              <div class="col s2">
+                <p>Q4</p>
+              </div>
+              <div class="col s2">
+                <p>Q5</p>     
+              </div>
+              <div class="col s2">
+                <p>Q6</p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col s2"><button class="btn grey darken-2" onclick="run_query(1);">Run</button></div>
+              <div class="col s2"><button class="btn grey darken-2" onclick="run_query(2);">Run</button></div>
+              <div class="col s2"><button class="btn grey darken-2" onclick="run_query(3);">Run</button></div>
+              <div class="col s2"><button class="btn grey darken-2" onclick="run_query(4);">Run</button></div>
+              <div class="col s2"><button class="btn grey darken-2" onclick="run_query(5);">Run</button></div>
+              <div class="col s2"><button class="btn grey darken-2" onclick="run_query(6);">Run</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
     <!-- File Log Panel -->
     <div id="filelogpanel" class="row">

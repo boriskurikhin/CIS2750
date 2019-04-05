@@ -259,12 +259,12 @@ app.post('/addevent', function(req, res) {
 });
 
 app.get('/dbstatus', function(req, res) {
-    connection.query('select (select count(*) from FILE) as fc, (select count(*) from EVENT) as ec, (select count(*) from ALARM) as ac;', function(err, result) {
-      if (err) res.status(400).send('Could not retrieve db status');
-      else {
-        res.send( {'FILE' : result[0]['fc'], 'EVENT' : result[0]['ec'], 'ALARM' : result[0]['ac']});
-      }
-    });
+  connection.query('select (select count(*) from FILE) as fc, (select count(*) from EVENT) as ec, (select count(*) from ALARM) as ac;', function(err, result) {
+    if (err) res.status(400).send('Could not retrieve db status');
+    else {
+      res.send( {'FILE' : result[0]['fc'], 'EVENT' : result[0]['ec'], 'ALARM' : result[0]['ac']});
+    }
+  });
 });
 
 app.post('/create', function(req, res) {
@@ -311,6 +311,19 @@ app.post('/create', function(req, res) {
     }
   });
 
+});
+
+app.post('/query', function(req, res) {
+  let qnum = req.body.qnum;
+  let table = {
+    '1': 'SELECT event_id, summary, start_time, location, organizer FROM EVENT ORDER BY UNIX_TIMESTAMP(start_time) DESC;',
+    '2': 'SELECT event_id, summary, start_time FROM EVENT WHERE cal_file = (SELECT cal_id FROM FILE WHERE file_Name = "' + req.body.filename + '" );',
+    '3': 'SELECT event_id, summary, start_time, organizer FROM EVENT WHERE start_time IN (SELECT start_time FROM EVENT GROUP BY start_time HAVING COUNT(*) > 1) ORDER BY UNIX_TIMESTAMP(start_time) DESC;'
+  }
+  connection.query(table[new String(qnum)], (err, response) => {
+    if (err) res.status(400).send('There occured an error on the server.');
+    res.send(response);
+  });
 });
 
 //establishing the connection

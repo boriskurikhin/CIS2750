@@ -14,6 +14,9 @@ $(document).ready(function() {
   $('.datepicker').datepicker();
   $('.timepicker').timepicker();
   $('.dropdown-trigger').dropdown();
+  // $('#query_textarea').css({
+  //   'font-family' : 'Consolas'
+  // });
 
   /* This is where we will re-render the calendar */
   $('#caldropdown').on('change', function() {
@@ -295,12 +298,16 @@ $('#btnConnect').click(function() {
   $.post('/connect', result).done(function(result) {
     alert('You have connected!');
     $('#dbdropdown').children().remove();
-    $('#dbdropdown').append('<li><a id="btnStore" onclick="save_files();">Save Files</a></li><li><a id="btnErase" onclick="delete_files();">Clear</a></li><li><a id="btnStatus" onclick="get_status();">Status</a></li><li><a id="btnQuery">Query</a></li>');
+    $('#dbdropdown').append('<li><a id="btnStore" onclick="save_files();">Save Files</a></li><li><a id="btnErase" onclick="delete_files();">Clear</a></li><li><a id="btnStatus" onclick="get_status();">Status</a></li><li><a id="btnQuery" onclick="show_query();">Query</a></li>');
     $('#login_form').slideToggle();
   }).fail(function(err) {
     pushError('Could not connect to ' + dbname + '!', err['responseText']);
   });
 });
+
+function show_query() {
+  $('#query_form').slideToggle();
+}
 
 function save_files() {
   $.ajax({
@@ -312,6 +319,54 @@ function save_files() {
     error: function(err) {
       pushError('Error!', 'Could not save files to DB');
     }
+  });
+}
+
+function run_query(query_num) {
+
+  let json = { qnum: query_num };
+
+  if (query_num === 2) {
+
+    let fn =  $('#query_file').val();
+
+    if (fn.length === 0) {
+      pushError('Error in query!', 'Invalid file name, make sure it has .ics');
+      return;
+    }
+
+    json['filename'] = fn;
+  }
+
+  $.post('/query', json).done(function(res) {
+    let count = res.length;
+    let result = "";
+    for (let i = 0; i < count; i++) {
+
+      result += "EVENT #" + res[i].event_id + "\n";
+      
+      //does it have a summary?
+      if (res[i].summary) {
+        result += "\tSummary: " + res[i].summary + "\n";
+      }
+    
+      result += "\tStart Time: " + res[i].start_time + "\n";
+      //default event stuff - at this point I was really tired and the assignment was due very soon :/
+      
+      if (res[i].location) {
+        result += "\tLocation: " + res[i].location + "\n";
+      }
+
+      if (res[i].organizer) {
+        result += "\tOrganizer: " + res[i].organizer + "\n";
+      }
+      
+    }
+    $('#query_textarea').val(result);
+    M.textareaAutoResize($('#query_textarea'));
+
+  }).fail(function(err) {
+    pushError('Error!', 'There was a problem contacting DB.');
   });
 }
 
@@ -388,19 +443,6 @@ function fileLog(firstTime) {
     dataType: "JSON",
     success: function(res) {
       //Show how many files there are on the server
-      
-      $.ajax({
-        type: "GET",
-        url: "/dbstatus",
-        dataType: "JSON",
-        success: function(res) {
-          if (res['FILE'] > 0) {
-            $('#btnClear').show();
-          } else {
-            $('#btnClear').hide();
-          }
-        }
-      });
 
       if (res['numFiles'] == 0 ) {
         $('#statusMessage').append('There are <span class="pink-text">NO</span> valid files on the server.');
