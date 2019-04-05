@@ -1,5 +1,6 @@
 var fileCount = 1;
 var calendars = {};
+let connected = false;
 
 jQuery.fn.scrollTo = function(elem, speed) { 
   $(this).animate({
@@ -299,7 +300,20 @@ $('#btnConnect').click(function() {
     alert('You have connected!');
     $('#dbdropdown').children().remove();
     $('#dbdropdown').append('<li><a id="btnStore" onclick="save_files();">Save Files</a></li><li><a id="btnErase" onclick="delete_files();">Clear</a></li><li><a id="btnStatus" onclick="get_status();">Status</a></li><li><a id="btnQuery" onclick="show_query();">Query</a></li>');
+    $.ajax({
+      type: "GET",
+      url: "/getnumfiles",
+      dataType: "JSON",
+      success: function(res) {
+        //we need to remove these guys if files don't exist on the server
+        if (res.numFiles === 0) {
+          $('#btnStore').parent().remove();
+          $('#btnErase').parent().remove();
+        }
+      }
+    });
     $('#login_form').slideToggle();
+    connected = true;
   }).fail(function(err) {
     pushError('Could not connect to ' + dbname + '!', err['responseText']);
   });
@@ -326,31 +340,61 @@ function run_query(query_num) {
 
   let json = { qnum: query_num };
 
+  let fn = undefined;
+  let organizer = undefined;
+
   if (query_num === 2) {
 
-    let fn =  $('#query_file').val();
+    fn = $('#query_file').val();
 
     if (fn.length === 0) {
-      pushError('Error in query!', 'Invalid file name, make sure it has .ics');
+      pushError('Error in query 2!', 'Invalid file name, make sure it has .ics');
+      return;
+    }
+    
+    json['filename'] = fn;
+  
+  } else if (query_num === 6) {
+
+    organizer = $('#query_organizer').val();
+
+    if (organizer.length === 0) {
+      pushError('Error in query 6!', 'Organizer query may not be empty');
       return;
     }
 
-    json['filename'] = fn;
+    json['organizer'] = organizer;
+
   }
+
 
   $.post('/query', json).done(function(res) {
     let count = res.length;
     let result = "";
+
     for (let i = 0; i < count; i++) {
 
-      result += "EVENT #" + res[i].event_id + "\n";
+      if (res[i]['isAlarm'] === true) {
+        result += 'ALARM #' + res[i].alarm_id + "\n";
+        result += '\tParent File: ' + res[i].file_Name + '\n';
+      } else {
+        result += "EVENT #" + res[i].event_id + "\n";
+        result += "\tStart Time: " + res[i].start_time.replace("T", " ").replace("Z", " (UTC)") + "\n";
+      }
+
+      if (res[i].action) {
+        result += "\tAction: " + res[i].action + "\n";
+      }
+
+      if (res[i].trigger) {
+        result += "\tTrigger: " + res[i].trigger + "\n";
+      }
       
       //does it have a summary?
       if (res[i].summary) {
         result += "\tSummary: " + res[i].summary + "\n";
       }
     
-      result += "\tStart Time: " + res[i].start_time + "\n";
       //default event stuff - at this point I was really tired and the assignment was due very soon :/
       
       if (res[i].location) {
@@ -446,8 +490,18 @@ function fileLog(firstTime) {
 
       if (res['numFiles'] == 0 ) {
         $('#statusMessage').append('There are <span class="pink-text">NO</span> valid files on the server.');
+        $('#btnStore').parent().remove();
+        $('#btnErase').parent().remove();
       } else {
-        $('#statusMessage').append('There are <span class="pink-text">' + res['numFiles'] + '</span> valid files on the server.');
+        if (connected) {
+          $('#statusMessage').append('There are <span class="pink-text">' + res['numFiles'] + '</span> valid files on the server.');
+          if ($('#btnStore').length === 0){
+            $('#dbdropdown').append('<li><a id="btnStore" onclick="save_files();">Save Files</a></li>');
+          }
+          if ($('#btnErase').length === 0){
+            $('#dbdropdown').append('<li><a id="btnErase" onclick="delete_files();">Clear</a></li>');
+          }
+        }
       }
       fileCount = res['numFiles'];
       console.log(res);
