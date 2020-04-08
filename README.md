@@ -7,6 +7,13 @@ This is an iCalendar application, meaning:
 * Parses and validates the file
 * Allows you to explore the file and modify some basic components (like Events)
 
+# How it works (under the hood)
+
+* Calendar parsing, validation, and modification is done using a *~2k loc* library written entriely in C 
+* Users can upload or interact with existing calendars by hitting numerous API endpoints made with NodeJS
+* Users can view Calendars, Events, and Alarms in the client made with HTML/CSS/JavaScript
+* There was also a filtering component made with MySQL - but it is not included here for security purposes
+
 Here's what it looks like
 
 <img src="calendargif.gif" width="100%">
