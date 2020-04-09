@@ -1,5 +1,14 @@
 # Calendar App - CIS*2750
 
+This app was created for CIS*2750, a second year Software Systems Development & Integration course at University of Guelph.
+This is an iCalendar application, meaning:
+
+* It takes an .ics file as input, or lets you create your own
+* Parses and validates the file
+* Allows you to explore the file and modify some basic components (like Events)
+
+Due to this being an assignment and done under a lot of time pressure, some code may be messy
+
 ### How to install & run
 
 Make sure to have `gcc`, `node` and `npm` installed prior to starting!
@@ -22,17 +31,7 @@ After you clone the repo:
  node app.js 1337
  ```
  Then open up a browser and navigate to: `localhost:1337`!
-
-
-This app was created for CIS*2750, a second year Software Systems Development & Integration course at University of Guelph.
-This is an iCalendar application, meaning:
-
-* It takes an .ics file as input, or lets you create your own
-* Parses and validates the file
-* Allows you to explore the file and modify some basic components (like Events)
-
-Due to this being an assignment and done under a lot of time pressure, some code may be messy
-
+ 
 ### How it works (under the hood)
 
 * Calendar parsing, validation, and modification is done using a [*~2k loc* library written entriely in C](https://github.com/boriskurikhin/CIS2750/blob/master/CalendarApp/parser/src/CalendarParser.c) 
