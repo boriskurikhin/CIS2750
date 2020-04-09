@@ -338,30 +338,6 @@ app.post('/query', function(req, res) {
   });
 });
 
-//establishing the connection
-app.post('/connect', function(req, res) {
-  console.log('user: ' + req.body.username + ', pass: ' + req.body.password + ', db_name: ' + req.body.dbname);
-  connection = mysql.createConnection({
-    host:     'dursley.socs.uoguelph.ca',
-    user:     req.body.username,
-    password: req.body.password,
-    database: req.body.dbname,
-    multipleStatements: true
-  });
-  connection.connect((error) => {
-    if (error) {
-      res.status(400).send('Could not connect. ' + error);
-    } else {
-      //Create tables on connection
-      createFileTable();
-      createEventTable();
-      createAlarmTable();
-      //Done
-      res.status(200).send('Success!');
-    }
-  })
-});
-
 app.get('/deleteallfiles', function(req, res) {
   connection.query('DELETE FROM ALARM; DELETE FROM EVENT; DELETE FROM FILE; ALTER TABLE ALARM AUTO_INCREMENT = 1; ALTER TABLE EVENT AUTO_INCREMENT = 1; ALTER TABLE FILE AUTO_INCREMENT = 1;', [1,2,3,4,5,6], function(err, results) {
     if (err) {
